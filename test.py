@@ -1,4 +1,14 @@
+import datetime
+import os
+import shutil
+import subprocess
+import json
+import threading
 import time
+import torch
+import torchaudio
+from torchaudio.transforms import MelSpectrogram
+
 start_time = time.time()
 import sys
 print(f"sys.executable：{sys.executable}")
@@ -42,94 +52,19 @@ from enhance import load_sr
 print('\rloading load_model  ', end='')
 from easy_functions import load_model
 
-end_time = time.time()
-execution_time = end_time - start_time
-print(f"代码块执行时间为: {execution_time} 秒")
 
-print('\rimports loaded!     ')
+args = argparse.Namespace(checkpoint_path='G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\checkpoints\\Wav2Lip.pth', segmentation_path='checkpoints/face_segmentation.pth', face='G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\demo.mp4', audio='G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\test1.wav', outfile='G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\demo.mp4', static=False, fps=25.0, pads=[0, 10, 20, 0], wav2lip_batch_size=1, out_height=1280, crop=[0, -1, 0, -1], box=[-1, -1, -1, -1], rotate=False, nosmooth='False', no_seg=False, no_sr=False, sr_model='gfpgan', fullres=1, debug_mask='False', preview_settings='False', mouth_tracking='True', mask_dilation=2.5, mask_feathering=5, quality='Fast')
 
 device='cuda'
 ffmpeg_path = 'ffmpeg.exe'
-
-parser = argparse.ArgumentParser(description='Inference code to lip-sync videos in the wild using Wav2Lip models')
-
-parser.add_argument('--checkpoint_path', type=str, 
-                    help='Name of saved checkpoint to load weights from', required=True)
-
-parser.add_argument('--segmentation_path', type=str, default="checkpoints/face_segmentation.pth",
-					help='Name of saved checkpoint of segmentation network', required=False)
-
-parser.add_argument('--face', type=str, 
-                    help='Filepath of video/image that contains faces to use', required=True)
-parser.add_argument('--audio', type=str, 
-                    help='Filepath of video/audio file to use as raw audio source', required=True)
-parser.add_argument('--outfile', type=str, help='Video path to save result. See default for an e.g.', 
-                                default='temp/result.mp4')
-
-parser.add_argument('--static', type=bool, 
-                    help='If True, then use only first video frame for inference', default=False)
-parser.add_argument('--fps', type=float, help='Can be specified only if input is a static image (default: 25)', 
-                    default=25., required=False)
-
-parser.add_argument('--pads', nargs='+', type=int, default=[0, 10, 0, 0], 
-                    help='Padding (top, bottom, left, right). Please adjust to include chin at least')
-
-parser.add_argument('--wav2lip_batch_size', type=int, help='Batch size for Wav2Lip model(s)', default=1)
-
-parser.add_argument('--out_height', default=480, type=int,
-            help='Output video height. Best results are obtained at 480 or 720')
-
-parser.add_argument('--crop', nargs='+', type=int, default=[0, -1, 0, -1],
-                    help='Crop video to a smaller region (top, bottom, left, right). Applied after resize_factor and rotate arg. ' 
-                    'Useful if multiple face present. -1 implies the value will be auto-inferred based on height, width')
-
-parser.add_argument('--box', nargs='+', type=int, default=[-1, -1, -1, -1], 
-                    help='Specify a constant bounding box for the face. Use only as a last resort if the face is not detected.'
-                    'Also, might work only if the face is not moving around much. Syntax: (top, bottom, left, right).')
-
-parser.add_argument('--rotate', default=False, action='store_true',
-                    help='Sometimes videos taken from a phone can be flipped 90deg. If true, will flip video right by 90deg.'
-                    'Use if you get a flipped result, despite feeding a normal looking video')
-
-parser.add_argument('--nosmooth', type=str, default=False,
-                    help='Prevent smoothing face detections over a short temporal window')
-              
-parser.add_argument('--no_seg', default=False, action='store_true',
-					help='Prevent using face segmentation')
-
-parser.add_argument('--no_sr', default=False, action='store_true',
-			          		help='Prevent using super resolution')
-
-parser.add_argument('--sr_model', type=str, default='gfpgan', 
-					help='Name of upscaler - gfpgan or RestoreFormer', required=False)
-
-parser.add_argument('--fullres', default=3, type=int,
-            help='used only to determine if full res is used so that no resizing needs to be done if so')
-
-parser.add_argument('--debug_mask', type=str, default=False, 
-                    help='Makes background grayscale to see the mask better')
-
-parser.add_argument('--preview_settings', type=str, default=False, 
-help='Processes only one frame')
-
-parser.add_argument('--mouth_tracking', type=str, default=False, 
-help='Tracks the mouth in every frame for the mask')
-
-parser.add_argument('--mask_dilation', default=150, type=float,
-            help='size of mask around mouth', required=False)
-
-parser.add_argument('--mask_feathering', default=151, type=int,
-            help='amount of feathering of mask around mouth', required=False)
-
-parser.add_argument('--quality', type=str, help='Choose between Fast, Improved, Enhanced and Experimental', 
-                                default='Fast')            
 
 with open(os.path.join('checkpoints','predictor.pkl'), 'rb') as f:
     predictor = pickle.load(f)
 
 with open(os.path.join('checkpoints','mouth_detector.pkl'), 'rb') as f:
     mouth_detector = pickle.load(f)
-
+    
+    
 #creating variables to prevent failing when a face isn't detected
 kernel = last_mask = x = y = w = h = None
 def Experimental(img, original_img,run_params): 
@@ -463,7 +398,7 @@ def face_detect(images, results_file='last_detected_face.pkl'):
     # 保存为 .npy 文件
     np.save('results.npy', results_array)
 
-    return results
+    return results_array
 
 def datagen(frames, mels):
     img_batch, mel_batch, frame_batch, coords_batch = [], [], [], []
@@ -523,11 +458,29 @@ def _load(checkpoint_path):
         checkpoint = torch.load(checkpoint_path,
                                 map_location=lambda storage, loc: storage)
     return checkpoint
+model = detector = detector_model = None
+def do_load(checkpoint_path):
+    global model, detector, detector_model
+    model = load_model(checkpoint_path)
+    detector = RetinaFace(gpu_id=0, model_path="checkpoints/mobilenet.pth", network="mobilenet")
+    detector_model = detector.model
+
+def face_rect(images):
+  face_batch_size = 8
+  num_batches = math.ceil(len(images) / face_batch_size)
+  prev_ret = None
+  for i in range(num_batches):
+      batch = images[i * face_batch_size: (i + 1) * face_batch_size]
+      all_faces = detector(batch)  # return faces list of all images
+      for faces in all_faces:
+          if faces:
+              box, landmarks, score = faces[0]
+              prev_ret = tuple(map(int, box))
+          yield prev_ret
 
 def main():
     start_time = time.time()
     args.img_size = 96
-    frame_number = 11
     
     full_frames = []
     fps = 25
@@ -568,19 +521,54 @@ def main():
           np.save('full_frames.npy', full_frames)
 
 
-    if not args.audio.endswith('.wav'):
-        print('Converting audio to .wav')
-        subprocess.check_call([
-              f"{ffmpeg_path}", "-y", "-loglevel", "error",
-              "-i", args.audio,
-              "temp/temp.wav",
-          ])
-        args.audio = 'temp/temp.wav'
+    # if not args.audio.endswith('.wav'):
+    #     print('Converting audio to .wav')
+    #     subprocess.check_call([
+    #           f"{ffmpeg_path}", "-y", "-loglevel", "error",
+    #           "-i", args.audio,
+    #           "temp/temp.wav",
+    #       ])
+    #     args.audio = 'temp/temp.wav'
         
-    print('analysing audio...')
+    # print('analysing audio...')
+    
+    # if not torch.cuda.is_available():
+    #     raise RuntimeError("CUDA is not available. Please check your installation.")
+
+    # # 设置设备为第一个可用的GPU
+    # device = torch.device("cuda:0")
+
+    # # 加载音频文件
+    # wav, sr = torchaudio.load(args.audio, normalize=True)
+    # # 确保采样率为16000Hz
+    # if sr != 16000:
+    #     resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=16000)
+    #     wav = resampler(wav)
+    # wav = wav.to(device)
+
+    # # 创建梅尔频谱图变换器
+    # mel_transformer = torchaudio.transforms.MelSpectrogram(
+    #     sample_rate=16000,
+    #     n_fft=800,
+    #     hop_length=200,
+    #     f_min=55,
+    #     f_max=7600,
+    #     n_mels=80,
+    # ).to(device)
+
+    # # 计算梅尔频谱图
+    # mel = mel_transformer(wav)
+
+    # # 将结果从CUDA设备移动到CPU
+    # # 调整输出形状
+    # mel = mel.squeeze().cpu().numpy()
+    
+    
     wav = audio.load_wav(args.audio, 16000)
     mel = audio.melspectrogram(wav)
- 
+    
+    print(mel.shape)
+    
     if np.isnan(mel.reshape(-1)).sum() > 0:
         raise ValueError('Mel contains nan! Using a TTS voice? Add a small epsilon noise to the wav file and try again')
     
@@ -603,31 +591,36 @@ def main():
     print (str(len(full_frames))+' frames to process')
     batch_size = args.wav2lip_batch_size
     
+    print(f"代码块执行时间为: {time.time()  - start_time} 秒")
     
     
+    start_time = time.time()
     
     if str(args.preview_settings) == 'True':
       gen = datagen(full_frames, mel_chunks)
     else:
       gen = datagen(full_frames.copy(), mel_chunks)
+      
+    print(f"代码块执行时间为: {time.time()  - start_time} 秒")
+    start_time = time.time()
 
     for i, (img_batch, mel_batch, frames, coords) in enumerate(tqdm(
     gen,
     total=int(np.ceil(float(len(mel_chunks))/batch_size)),
     desc="Processing Wav2Lip",ncols=100
 )):
-        if i == 0:
+        # if i == 0:
 
-          if not args.quality=='Fast':
-            print(f"mask size: {args.mask_dilation}, feathering: {args.mask_feathering}")  
-            if not args.quality=='Improved':   
-              print("Loading", args.sr_model)
-              run_params = load_sr()
+        #   if not args.quality=='Fast':
+        #     print(f"mask size: {args.mask_dilation}, feathering: {args.mask_feathering}")  
+        #     if not args.quality=='Improved':   
+        #       print("Loading", args.sr_model)
+        #       run_params = load_sr()
 
-          print("Starting...")
-          frame_h, frame_w = full_frames[0].shape[:-1]
-          fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
-          out = cv2.VideoWriter('temp/result.mp4', fourcc, fps, (frame_w, frame_h))
+        # #   print("Starting...")
+        #   frame_h, frame_w = full_frames[0].shape[:-1]
+        #   fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
+        #   out = cv2.VideoWriter('temp/result.mp4', fourcc, fps, (frame_w, frame_h))
 
         img_batch = torch.FloatTensor(np.transpose(img_batch, (0, 3, 1, 2))).to('cuda')
         mel_batch = torch.FloatTensor(np.transpose(mel_batch, (0, 3, 1, 2))).to('cuda')
@@ -635,84 +628,45 @@ def main():
         with torch.no_grad():
             pred = model(mel_batch, img_batch)
 
-        pred = pred.cpu().numpy().transpose(0, 2, 3, 1) * 255.
+        # pred = pred.cpu().numpy().transpose(0, 2, 3, 1) * 255.
 
-        for p, f, c in zip(pred, frames, coords):
+        # for p, f, c in zip(pred, frames, coords):
             #cv2.imwrite('temp/f.jpg', f)
             
-            y1, y2, x1, x2 = c
+            # y1, y2, x1, x2 = c
 
-            if str(args.debug_mask) == 'True' and args.quality != "Experimental": #makes the background black & white so you can see the mask better
-              f = cv2.cvtColor(f, cv2.COLOR_BGR2GRAY)
-              f = cv2.cvtColor(f, cv2.COLOR_GRAY2BGR)
-            of=f
-            p = cv2.resize(p.astype(np.uint8), (x2 - x1, y2 - y1))
-            cf = f[y1:y2, x1:x2]
+            # if str(args.debug_mask) == 'True' and args.quality != "Experimental": #makes the background black & white so you can see the mask better
+            #   f = cv2.cvtColor(f, cv2.COLOR_BGR2GRAY)
+            #   f = cv2.cvtColor(f, cv2.COLOR_GRAY2BGR)
+            # of=f
+            # p = cv2.resize(p.astype(np.uint8), (x2 - x1, y2 - y1))
+            # cf = f[y1:y2, x1:x2]
+            
+            # f[y1:y2, x1:x2] = p
+            # cv2.imwrite('temp/p.jpg', f)
+            # out.write(f)
+              
+            # 显示每一帧图像
+            # cv2.imshow('Processed Frame', f)
+            # cv2.waitKey(1)  # 等待1毫秒以确保图像显示在窗口中
 
-            if args.quality=='Enhanced':
-              p = upscale(p, run_params)
-
-            if args.quality in ['Enhanced', 'Improved']:
-              if str(args.mouth_tracking) == 'True':
-                for i in range(len(frames)):
-                  p, last_mask = create_tracked_mask(p, cf)
-              else:
-                for i in range(len(frames)):
-                  p, last_mask = create_mask(p, cf)
-		      
-
-            f[y1:y2, x1:x2] = p
-            #cv2.imwrite('temp/p.jpg', f)
-
-            if args.quality=='Experimental':
-              last_mask = None
-              for i in range(len(frames)):
-                f, last_mask = Experimental(f, of,run_params)
-
-            if str(args.preview_settings) == 'True':
-              cv2.imwrite('temp/preview.jpg', f)
-
-            else:
-              out.write(f)
-
-    out.release()
+    # out.release()
     end_time = time.time()
     execution_time = end_time - start_time
     print(f"代码块执行时间为: {execution_time} 秒")
-    
-    if str(args.preview_settings) == 'False':
-      print("converting to final video")
-
-      subprocess.check_call([
-        f"{ffmpeg_path}", "-y", "-loglevel", "error",
-        "-i", "temp/result.mp4",
-        "-i", args.audio,
-        "-c:v", "h264_nvenc",
-        args.outfile ,
-      ])
-
-
-model = detector = detector_model = None
-def do_load(checkpoint_path):
-    global model, detector, detector_model
-    model = load_model(checkpoint_path)
-    detector = RetinaFace(gpu_id=0, model_path="checkpoints/mobilenet.pth", network="mobilenet")
-    detector_model = detector.model
-
-def face_rect(images):
-  face_batch_size = 8
-  num_batches = math.ceil(len(images) / face_batch_size)
-  prev_ret = None
-  for i in range(num_batches):
-      batch = images[i * face_batch_size: (i + 1) * face_batch_size]
-      all_faces = detector(batch)  # return faces list of all images
-      for faces in all_faces:
-          if faces:
-              box, landmarks, score = faces[0]
-              prev_ret = tuple(map(int, box))
-          yield prev_ret
+    # cv2.destroyAllWindows()  # 在结束时关闭OpenCV窗口
 
 if __name__ == '__main__':
-    args = parser.parse_args()
     do_load(args.checkpoint_path)
-    main()
+    input("按下回车键执行 main() 方法：")
+    thread = threading.Thread(target=main)
+    
+    # 启动线程
+    thread.start()
+    
+    # main()
+    while True:
+        print('')
+        time.sleep(10)
+
+

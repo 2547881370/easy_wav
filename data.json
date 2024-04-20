@@ -1,0 +1,8 @@
+[
+    "g:\\BaiduNetdiskDownload\\Easy-Wav2Lip-\u7720-0229\\venv\\python.exe", 
+    "inference.py", 
+    "--face", 
+    "G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-\u7720-0229\\temp\\demo.mp4", 
+    "--audio", "G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-\u7720-0229\\temp\\test.wav", 
+    "--outfile", "G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-\u7720-0229\\temp\\demo.mp4", 
+    "--pads", "0", "10", "20", "0", "--checkpoint_path", "G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-\u7720-0229\\checkpoints\\Wav2Lip.pth", "--out_height", "1280", "--fullres", "1", "--quality", "Fast", "--mask_dilation", "2.5", "--mask_feathering", "5", "--nosmooth", "False", "--debug_mask", "False", "--preview_settings", "False", "--mouth_tracking", "True"]

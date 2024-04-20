@@ -2,6 +2,7 @@
 原作者地址：https://github.com/anothermartz/Easy-Wav2Lip
 眠NEON-优化版，B站地址：https://space.bilibili.com/386198029 \Wechat:dzemcn
 '''
+import json
 import os
 import sys
 import re
@@ -295,6 +296,7 @@ while True:
 
   #execute Wav2Lip & upscaler
   python_executable = sys.executable
+  
   cmd = [
       python_executable, "inference.py",
       "--face", temp_input_video,
@@ -312,6 +314,11 @@ while True:
       "--preview_settings", str(preview_settings),
       "--mouth_tracking", str(mouth_tracking)
   ]
+  
+  file_name = "data.json"
+  # 将数组保存为 JSON 文件
+  with open(file_name, 'w') as file:
+      json.dump(cmd, file)
 
   # Run the command
   

@@ -5,6 +5,7 @@ import numpy as np
 from scipy import signal
 from scipy.io import wavfile
 from hparams import hparams as hp
+import concurrent.futures
 
 def load_wav(path, sr):
     return librosa.core.load(path, sr=sr)[0]
@@ -49,6 +50,24 @@ def melspectrogram(wav):
     if hp.signal_normalization:
         return _normalize(S)
     return S
+
+# 切割音频文件为小块，并行计算频谱图
+def compute_mel_spectrogram_parallel(path, sr, chunk_size=10):
+    wav = load_wav(path, sr)
+    num_samples = len(wav)
+    num_chunks = num_samples // chunk_size
+
+    # 并行计算每个小块的频谱图
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(melspectrogram, wav[i*chunk_size:(i+1)*chunk_size]) for i in range(num_chunks)]
+    
+    # 获取所有小块的频谱图结果
+    mel_results = [future.result() for future in concurrent.futures.as_completed(futures)]
+    
+    # 组合小块的频谱图
+    mel_combined = np.concatenate(mel_results, axis=1)
+
+    return mel_combined
 
 def _lws_processor():
     import lws
