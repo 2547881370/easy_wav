@@ -1,15 +1,21 @@
 import datetime
+import subprocess
+import asyncio
 import torch
 import numpy as np
 import math
 import os
 import pickle
 import cv2
+import websockets
 import audio
 from batch_face import RetinaFace
 from functools import partial
 from tqdm import tqdm
 from easy_functions import load_model
+from moviepy.editor import VideoFileClip
+import threading
+import time
 
 # 加载基础环境变量
 class base_tech_avatars_init:
@@ -137,6 +143,7 @@ class VideoPreprocessor:
         self.frames = 0
         self.faces = 0
         self.current_index = 0
+        self.frame_first = None
         self.load_frames()
         self.load_faces()
 
@@ -144,6 +151,7 @@ class VideoPreprocessor:
         # 列出指定文件夹中以'frame_'为前缀的.npy文件数量
         frame_files = [f for f in os.listdir(f'./cache/{self.dirName}/') if f.startswith('frame_')]
         self.frames = len(frame_files)
+        self.frame_first = np.load(f'./cache/{self.dirName}/frame_0.npy')
 
     def load_faces(self):
         # 列出指定文件夹中以'face_'为前缀的.npy文件数量
@@ -167,12 +175,13 @@ class VideoPreprocessor:
 
 # 数字人合成
 class DigitalHumanSynthesizer:
-    def __init__(self, video_preprocessor):
+    def __init__(self, video_preprocessor, batch_size=32):
         self.video_preprocessor = video_preprocessor
+        self.batch_size = batch_size
 
-    def generate_digital_human(self, audio_file):
+    def generate_digital_human(self, audio_file,fps = 25):
         # 从音频文件中获取帧数
-        audio_frames = AudioUtils.get_audio_frames(audio_file)
+        audio_frames = AudioUtils.get_audio_frames(audio_file,fps)
         
         # 获取需要的人脸帧数据
         faces_to_use,frames_to_use = self.video_preprocessor.get_next_frames_and_faces(len(audio_frames))
@@ -180,11 +189,17 @@ class DigitalHumanSynthesizer:
         gen = self.datagen(frames_to_use, faces_to_use,audio_frames)
         
         # 合成数字人
-        for i, (img_batch, mel_batch, frames, coords) in enumerate(tqdm(
+        for i, (img_batch, mel_batch, frames, coords, audio_chunk) in enumerate(tqdm(
             gen,
-            total=int(np.ceil(float(len(audio_frames))/1)),
+            total=int(np.ceil(float(len(audio_frames))/self.batch_size)),
             desc="Processing Wav2Lip",ncols=100
         )):
+            timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+            if i == 0:
+                frame_h, frame_w = self.video_preprocessor.frame_first.shape[:-1]
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
+                out = cv2.VideoWriter('temp/result.mp4', fourcc, fps, (frame_w, frame_h))
+            
             img_batch = torch.FloatTensor(np.transpose(img_batch, (0, 3, 1, 2))).to('cuda')
             mel_batch = torch.FloatTensor(np.transpose(mel_batch, (0, 3, 1, 2))).to('cuda')
 
@@ -197,13 +212,30 @@ class DigitalHumanSynthesizer:
                 y1, y2, x1, x2 = c
                 p = cv2.resize(p.astype(np.uint8), (x2 - x1, y2 - y1))
                 f[y1:y2, x1:x2] = p
-                # 显示每一帧图像
-                cv2.imshow('Processed Frame', f)
-                cv2.waitKey(1)  # 等待1毫秒以确保图像显示在窗口中
+                out.write(f)
+                # # 显示每一帧图像
+                # cv2.imshow('Processed Frame', f)
+                # cv2.waitKey(1)  # 等待1毫秒以确保图像显示在窗口中
                 
-        cv2.destroyAllWindows()  # 在结束时关闭OpenCV窗口
+                # TODO 这里进行播放音频帧
+                
+        # cv2.destroyAllWindows()  # 在结束时关闭OpenCV窗口
+        out.release()
+        
+        try:
+            subprocess.check_call([
+            "ffmpeg.exe", "-y", "-loglevel", "error",
+            "-i", 'temp/result.mp4',
+            "-i", audio_file,
+            "-c:v", "h264_nvenc",
+            f'temp/result_{timestamp}.mp4' ,
+        ])
+        except subprocess.CalledProcessError as e:
+            print("FFmpeg command failed with error:", e)
+        file_path =  f'temp/result_{timestamp}.mp4'   
+        return file_path
             
-    def datagen(self,frames,face_det_results, mels):
+    def datagen(self, frames, face_det_results, mels):
         img_batch, mel_batch, frame_batch, coords_batch = [], [], [], []
         static = False
         img_size = 96
@@ -220,7 +252,7 @@ class DigitalHumanSynthesizer:
             frame_batch.append(frame_to_save)
             coords_batch.append(coords)
 
-            if len(img_batch) >= 1:
+            if len(img_batch) >= self.batch_size:
                 img_batch, mel_batch = np.asarray(img_batch), np.asarray(mel_batch)
 
                 img_masked = img_batch.copy()
@@ -229,20 +261,22 @@ class DigitalHumanSynthesizer:
                 img_batch = np.concatenate((img_masked, img_batch), axis=3) / 255.
                 mel_batch = np.reshape(mel_batch, [len(mel_batch), mel_batch.shape[1], mel_batch.shape[2], 1])
 
-                yield img_batch, mel_batch, frame_batch, coords_batch
+                # 获取当前帧对应的音频数据
+                audio_chunk = m
+                
+                yield img_batch, mel_batch, frame_batch, coords_batch, audio_chunk
                 img_batch, mel_batch, frame_batch, coords_batch = [], [], [], []
             
 # 音频工具类
 class AudioUtils:
     
     @staticmethod
-    def get_audio_frames(audio_file):
+    def get_audio_frames(audio_file,fps = 25):
             wav = audio.load_wav(audio_file, 16000)
             mel = audio.melspectrogram(wav)
             
             mel_chunks = []
-            # 25是FPS，目前写的是固定数值，需要动态取当前视频模型的FPS
-            mel_idx_multiplier = 80./25
+            mel_idx_multiplier = 80./fps
             i = 0
             while 1:
                 start_idx = int(i * mel_idx_multiplier)
@@ -252,8 +286,152 @@ class AudioUtils:
                 mel_chunks.append(mel[:, start_idx : start_idx + new_base_tech_avatars_init.mel_step_size])
                 i += 1
             return mel_chunks
+        
+# ws服务
+class WebSocketServer:
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+        self.server = None
+        video_preprocessor = VideoPreprocessor('20240420_220826')
+        self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
+        self.videoPlayer = VideoPlayer()
+        self.videoPlayer.start_player_thread()
 
-video_preprocessor = VideoPreprocessor('20240418_235942')
-digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
-digital_human_synthesizer.generate_digital_human('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\test1.wav')
-digital_human_synthesizer.generate_digital_human('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\test2.wav')
+    async def handle_message(self, message):
+        # 在这里处理序列化后的消息
+        print(message)
+        # self.videoPlayer.add_to_playlist(message)
+
+    async def echo(self, websocket, path):
+        async for message in websocket:
+            # 处理收到的消息
+            await self.handle_message(message)
+
+    async def start_server(self):
+        # 创建 WebSocket 服务器,监听指定的主机和端口
+        self.server = await websockets.serve(self.echo, self.host, self.port)
+
+        # 输出服务器地址信息
+        print(f"WebSocket 服务器运行在 {self.server.sockets[0].getsockname()}")
+
+        # 保持服务器运行
+        await self.server.wait_closed()
+
+    def run(self):
+        # 运行主函数
+        asyncio.run(self.start_server())
+        
+class VideoPlayer:
+    def __init__(self, onNoPlaylist = None , onPlayVideo=None, beforeCallback=None):
+        self.playing = False
+        self.playlist = []
+        self.timer_interval = 1.0  # 定时器间隔(秒)
+        self.onNoPlaylist = onNoPlaylist  # 播放队列是空的时候
+        self.onPlayVideo = onPlayVideo  # 当前正在播放的视频
+        self.onBeforeCallback = beforeCallback  # 播放前的回调
+        self.is_init = False
+
+    def play_video(self, video_path):
+        if self.onPlayVideo:
+            self.onPlayVideo(video_path)
+
+        try:
+            clip = VideoFileClip(video_path)
+            clip.preview()
+            os.remove(video_path)
+        except Exception as e:
+            time.sleep(0.3)
+            self.play_video(video_path)
+            print(f"播放器出错: {e}")
+
+    def play_next_video(self):
+        self.playing = True
+        if self.playlist:
+            video_path = self.playlist.pop(0)
+            if video_path is None:
+                if self.onNoPlaylis != None:
+                    self.onNoPlaylist()
+            else:
+                if self.onBeforeCallback:
+                    threading.Thread(target=self.onBeforeCallback).start()  # Execute callback asynchronously
+                self.play_video(video_path)
+        else:
+            if self.onNoPlaylis != None:
+                self.onNoPlaylist()
+
+    def timer_callback(self):
+        while True:
+            # 在这里添加你的定时器逻辑
+            # print("定时器回调 - 调整视频效果")
+            time.sleep(self.timer_interval)
+
+    def start_timer_thread(self):
+        timer_thread = threading.Thread(target=self.timer_callback)
+        timer_thread.daemon = True
+        timer_thread.start()
+
+    def start_player_thread(self):
+        self.is_init = True
+        player_thread = threading.Thread(target=self.player_thread)
+        player_thread.start()
+
+    def player_thread(self):
+        while True:
+            if not self.playing:
+                self.play_next_video()
+                self.playing = False
+
+    def add_to_playlist(self, video_path):
+        self.playlist.append(video_path)
+
+    def add_insert_playlist(self, video_path):
+        self.playlist = [video_path] + self.playlist
+
+class VideoReader:
+    def __init__(self, directory):
+        self.directory = directory
+        video_preprocessor = VideoPreprocessor('20240420_220826')
+        self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
+        self.videoPlayer = VideoPlayer()
+        
+
+    def list_video_files(self):
+        # 获取目录下所有文件
+        files = os.listdir(self.directory)
+        # 过滤出视频文件
+        video_files = [f for f in files if f.endswith('.wav')]
+        # 按文件创建时间从老到新排序
+        video_files.sort(key=lambda x: os.path.getctime(os.path.join(self.directory, x)))
+        return video_files
+
+    def read_next_video(self):
+        video_files = self.list_video_files()
+        if video_files:
+            # 读取最老的视频文件
+            oldest_video = video_files[0]
+            with open(os.path.join(self.directory, oldest_video), 'rb') as f:
+                # 这里可以加上视频文件的读取逻辑
+                print(f"Reading {oldest_video}")
+                file_path = self.digital_human_synthesizer.generate_digital_human(os.path.join(self.directory, oldest_video),30)
+                self.videoPlayer.add_to_playlist(file_path)
+                if self.videoPlayer.is_init == False:
+                    self.videoPlayer.start_player_thread()
+            # 读取完成后可以删除文件
+            os.remove(os.path.join(self.directory, oldest_video))
+        else:
+            print("No video files found.")
+
+# 测试
+if __name__ == "__main__":
+    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2\output\create\生成音频")
+    while True:
+        video_reader.read_next_video()
+
+# video_preprocessor = VideoPreprocessor('20240420_220826')
+# digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
+# digital_human_synthesizer.generate_digital_human('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\test1.wav',30)
+# digital_human_synthesizer.generate_digital_human('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\test2.wav',30)
+
+# ws_server = WebSocketServer("127.0.0.1", 9999)
+# ws_server.run()
