@@ -1,88 +1,40 @@
-import os
-from moviepy.editor import VideoFileClip
-import threading
+import queue
+import subprocess
 import time
+from flask import Flask, Response, request
 
-class VideoPlayer:
-    def __init__(self, onNoPlaylist = None , onPlayVideo=None, beforeCallback=None):
-        self.playing = False
-        self.playlist = []
-        self.timer_interval = 1.0  # 定时器间隔(秒)
-        self.onNoPlaylist = onNoPlaylist  # 播放队列是空的时候
-        self.onPlayVideo = onPlayVideo  # 当前正在播放的视频
-        self.onBeforeCallback = beforeCallback  # 播放前的回调
+app = Flask(__name__)
 
-    def play_video(self, video_path):
-        if self.onPlayVideo:
-            self.onPlayVideo(video_path)
+q = queue.Queue()
 
-        try:
-            clip = VideoFileClip(video_path)
-            clip.preview()
-            os.remove(video_path)
-        except Exception as e:
-            time.sleep(0.3)
-            self.play_video(video_path)
-            print(f"播放器出错: {e}")
-
-    def play_next_video(self):
-        self.playing = True
-        if self.playlist:
-            video_path = self.playlist.pop(0)
-            if video_path is None:
-                if self.onNoPlaylis != None:
-                    self.onNoPlaylist()
-            else:
-                if self.onBeforeCallback:
-                    threading.Thread(target=self.onBeforeCallback).start()  # Execute callback asynchronously
-                self.play_video(video_path)
-        else:
-            if self.onNoPlaylis != None:
-                self.onNoPlaylist()
-
-    def timer_callback(self):
+def generate_video():
+    while True:
+        video_path = q.get()
+        cmd = ['ffmpeg.exe', '-i', video_path, '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov', '-']
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         while True:
-            # 在这里添加你的定时器逻辑
-            # print("定时器回调 - 调整视频效果")
-            time.sleep(self.timer_interval)
+            data = p.stdout.read(1024)
+            if not data:
+                break
+            yield data
+        q.task_done()
 
-    def start_timer_thread(self):
-        timer_thread = threading.Thread(target=self.timer_callback)
-        timer_thread.daemon = True
-        timer_thread.start()
+@app.route('/')
+def index():
+    return "Flask server"
 
-    def start_player_thread(self):
-        player_thread = threading.Thread(target=self.player_thread)
-        player_thread.start()
+@app.route('/video_feed')
+def video_feed():
+    return Response(generate_video(), mimetype='video/mp4')
 
-    def player_thread(self):
-        while True:
-            if not self.playing:
-                self.play_next_video()
-                self.playing = False
+@app.route('/enqueue_video', methods=['POST'])
+def enqueue_video():
+    video_path = request.form.get('video_path')
+    if video_path:
+        q.put(video_path)
+        return "Video enqueued successfully", 200
+    else:
+        return "No video path provided", 400
 
-    def add_to_playlist(self, video_path):
-        self.playlist.append(video_path)
-
-    def add_insert_playlist(self, video_path):
-        self.playlist = [video_path] + self.playlist
-
-
-
-
-def onPlayVideo(video_path):
-    print(f"正在播放：{video_path}")
-
-# 创建一个VideoPlayer实例
-videoPlayer = VideoPlayer(None, onPlayVideo)
-
-# 添加视频到播放列表
-videoPlayer.add_to_playlist("temp/demo.mp4")
-videoPlayer.add_to_playlist("temp/demo.mp4")
-
-# 开始播放
-videoPlayer.start_player_thread()
-
-# 等待视频播放完成
-while True:
-    time.sleep(1)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port='5000')

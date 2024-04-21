@@ -1,6 +1,7 @@
 import datetime
 import subprocess
 import asyncio
+import requests
 import torch
 import numpy as np
 import math
@@ -323,7 +324,7 @@ class WebSocketServer:
         asyncio.run(self.start_server())
         
 class VideoPlayer:
-    def __init__(self, onNoPlaylist = None , onPlayVideo=None, beforeCallback=None):
+    def __init__(self, onNoPlaylist=None, onPlayVideo=None, beforeCallback=None):
         self.playing = False
         self.playlist = []
         self.timer_interval = 1.0  # 定时器间隔(秒)
@@ -331,6 +332,7 @@ class VideoPlayer:
         self.onPlayVideo = onPlayVideo  # 当前正在播放的视频
         self.onBeforeCallback = beforeCallback  # 播放前的回调
         self.is_init = False
+        self.lock = threading.Lock()  # Add lock for synchronization
 
     def play_video(self, video_path):
         if self.onPlayVideo:
@@ -346,19 +348,21 @@ class VideoPlayer:
             print(f"播放器出错: {e}")
 
     def play_next_video(self):
-        self.playing = True
-        if self.playlist:
-            video_path = self.playlist.pop(0)
-            if video_path is None:
-                if self.onNoPlaylis != None:
-                    self.onNoPlaylist()
+        with self.lock:  # Acquire lock before accessing shared resources
+            self.playing = True
+            if self.playlist:
+                video_path = self.playlist.pop(0)
+                if video_path is None:
+                    if self.onNoPlaylist is not None:
+                        self.onNoPlaylist()
+                else:
+                    if self.onBeforeCallback:
+                        threading.Thread(target=self.onBeforeCallback).start()  # Execute callback asynchronously
+                    self.play_video(video_path)
             else:
-                if self.onBeforeCallback:
-                    threading.Thread(target=self.onBeforeCallback).start()  # Execute callback asynchronously
-                self.play_video(video_path)
-        else:
-            if self.onNoPlaylis != None:
-                self.onNoPlaylist()
+                if self.onNoPlaylist is not None:
+                    self.onNoPlaylist()
+            self.playing = False  # Release lock after modifying shared resources
 
     def timer_callback(self):
         while True:
@@ -380,20 +384,34 @@ class VideoPlayer:
         while True:
             if not self.playing:
                 self.play_next_video()
-                self.playing = False
 
     def add_to_playlist(self, video_path):
-        self.playlist.append(video_path)
+        with self.lock:  # Acquire lock before accessing shared resources
+            self.playlist.append(video_path)
 
     def add_insert_playlist(self, video_path):
-        self.playlist = [video_path] + self.playlist
+        with self.lock:  # Acquire lock before accessing shared resources
+            self.playlist = [video_path] + self.playlist
+class StreamMediaClient:
+    def __init__(self, server_url):
+        self.server_url = server_url
 
+    def upload_file(self, file_path):
+        url = self.server_url + '/enqueue_video'
+        response = requests.post(url, data={'video_path': file_path})
+        return response.text
+
+    def stream_media(self):
+        url = self.server_url + '/stream'
+        return requests.get(url, stream=True).content
+    
 class VideoReader:
     def __init__(self, directory):
         self.directory = directory
         video_preprocessor = VideoPreprocessor('20240420_220826')
         self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
         self.videoPlayer = VideoPlayer()
+        self.client = StreamMediaClient('http://127.0.0.1:5000')
         
 
     def list_video_files(self):
@@ -413,12 +431,14 @@ class VideoReader:
             with open(os.path.join(self.directory, oldest_video), 'rb') as f:
                 # 这里可以加上视频文件的读取逻辑
                 print(f"Reading {oldest_video}")
-                file_path = self.digital_human_synthesizer.generate_digital_human(os.path.join(self.directory, oldest_video),30)
-                self.videoPlayer.add_to_playlist(file_path)
-                if self.videoPlayer.is_init == False:
-                    self.videoPlayer.start_player_thread()
+                file_path = self.digital_human_synthesizer.generate_digital_human(os.path.join(self.directory, oldest_video), 30)
+                # self.videoPlayer.add_to_playlist(file_path)
+                # if not self.videoPlayer.is_init:
+                #     self.videoPlayer.start_player_thread()
+                response = self.client.upload_file(os.path.abspath(file_path))
             # 读取完成后可以删除文件
-            os.remove(os.path.join(self.directory, oldest_video))
+            # os.remove(os.path.join(self.directory, oldest_video))
+            # os.remove(file_path)
         else:
             print("No video files found.")
 
