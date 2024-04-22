@@ -75,13 +75,13 @@ class VideoPreprocessing:
           
           # 保存人脸数据
           for idx, face_data in enumerate(results_array):
-            file_path = f'./cache/{timestamp}/face_{idx}.npy'
-            np.save(file_path, face_data)
+            file_path = f'./cache/{timestamp}/face_{idx}.npz'
+            np.savez_compressed(file_path, face_data)
             
           # 保存图片帧
           for idx, frame_data in enumerate(full_frames):
-            file_path = f'./cache/{timestamp}/frame_{idx}.npy'
-            np.save(file_path, frame_data)
+            file_path = f'./cache/{timestamp}/frame_{idx}.npz'
+            np.savez_compressed(file_path, frame_data)
 
           return fps
               
@@ -136,7 +136,7 @@ class VideoPreprocessing:
             return boxes
  
  
-# newVideoPreprocessing = VideoPreprocessing('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\demo.mp4')
+# newVideoPreprocessing = VideoPreprocessing('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\demo2.mp4')
 # fps = newVideoPreprocessing.extract_faces()
 
 # 数字人处理进度维护
@@ -155,7 +155,7 @@ class VideoPreprocessor:
         # 列出指定文件夹中以'frame_'为前缀的.npy文件数量
         frame_files = [f for f in os.listdir(f'./cache/{self.dirName}/') if f.startswith('frame_')]
         self.frames = len(frame_files)
-        self.frame_first = np.load(f'./cache/{self.dirName}/frame_0.npy')
+        self.frame_first = np.load(f'./cache/{self.dirName}/frame_0.npz')
 
     def load_faces(self):
         # 列出指定文件夹中以'face_'为前缀的.npy文件数量
@@ -175,9 +175,9 @@ class VideoPreprocessor:
                 self.direction = 1  # 当索引超出范围时，改变方向为正向
             # print(f'当前索引 ： {self.current_index}；当前视频帧数 ：{self.frames}；当前人脸帧数：{self.faces}')
             # 读取人脸数据
-            loaded_face_results_array = np.load(f'./cache/{self.dirName}/face_{self.current_index}.npy', allow_pickle=True)
+            loaded_face_results_array = np.load(f'./cache/{self.dirName}/face_{self.current_index}.npz', allow_pickle=True)
             # 读取视频帧数据
-            loaded_frame_results_array = np.load(f'./cache/{self.dirName}/frame_{self.current_index}.npy')
+            loaded_frame_results_array = np.load(f'./cache/{self.dirName}/frame_{self.current_index}.npz')
             faces_to_use.append(loaded_face_results_array)
             frames_to_use.append(loaded_frame_results_array)
             # 根据当前方向更新索引
@@ -186,7 +186,7 @@ class VideoPreprocessor:
 
 # 数字人合成
 class DigitalHumanSynthesizer:
-    def __init__(self, video_preprocessor, batch_size=1):
+    def __init__(self, video_preprocessor, batch_size=16):
         self.video_preprocessor = video_preprocessor
         self.batch_size = batch_size
 
@@ -207,7 +207,7 @@ class DigitalHumanSynthesizer:
         )):
             timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
             if i == 0:
-                frame_h, frame_w = self.video_preprocessor.frame_first.shape[:-1]
+                frame_h, frame_w = self.video_preprocessor.frame_first['arr_0'].shape[:-1]
                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
                 out = cv2.VideoWriter('temp/result.mp4', fourcc, fps, (frame_w, frame_h))
             
@@ -253,8 +253,8 @@ class DigitalHumanSynthesizer:
 
         for i, m in enumerate(mels):
             idx = 0 if static else i%len(frames)
-            frame_to_save = frames[idx].copy()
-            face, coords = face_det_results[idx].copy()
+            frame_to_save = frames[idx]['arr_0'].copy()
+            face, coords = face_det_results[idx]['arr_0'].copy()
 
             face = cv2.resize(face, (img_size, img_size))
 
@@ -350,7 +350,7 @@ class StreamMediaClient:
 class VideoReader:
     def __init__(self, directory):
         self.directory = directory
-        video_preprocessor = VideoPreprocessor('20240420_220826')
+        video_preprocessor = VideoPreprocessor('20240422_124942')
         self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
         # 在单独的线程中执行创建窗口的函数
         self.player = VideoPlayer()
@@ -381,10 +381,9 @@ class VideoReader:
                 # 这里可以加上视频文件的读取逻辑
                 print(f"Reading {oldest_video}")
                 file_path = self.digital_human_synthesizer.generate_digital_human(os.path.join(self.directory, oldest_video), 30)
-                # self.player.add_video(file_path)
-                #response = self.client.upload_file(os.path.abspath(file_path))
+                self.player.add_video(file_path)
             # 读取完成后可以删除文件
-            # os.remove(os.path.join(self.directory, oldest_video))
+            os.remove(os.path.join(self.directory, oldest_video))
             # os.remove(file_path)
         else:
             print("No video files found.")
@@ -396,7 +395,7 @@ def create_window(player):
     player.player_window.play()
     
     
-
+# 视频播放
 class VideoPlayer:
     def __init__(self):
         self.instance = vlc.Instance('--no-xlib --quiet')
@@ -418,6 +417,7 @@ class VideoPlayer:
         self.media_list_player.set_media_list(self.media_list)
         self.media_list_player.set_media_player(self.player_window)  
         self.media_list_player.play()
+        # os.remove(filepath)
 
         while True:
             time.sleep(0.1)
