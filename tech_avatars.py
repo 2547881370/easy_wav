@@ -17,6 +17,8 @@ from easy_functions import load_model
 from moviepy.editor import VideoFileClip
 import threading
 import time
+import vlc
+import queue
 
 # 加载基础环境变量
 class base_tech_avatars_init:
@@ -145,6 +147,7 @@ class VideoPreprocessor:
         self.faces = 0
         self.current_index = 0
         self.frame_first = None
+        self.direction = 1  # 定义方向变量，初始值为1，表示正向
         self.load_frames()
         self.load_faces()
 
@@ -158,25 +161,32 @@ class VideoPreprocessor:
         # 列出指定文件夹中以'face_'为前缀的.npy文件数量
         face_files = [f for f in os.listdir(f'./cache/{self.dirName}/') if f.startswith('face_')]
         self.faces = len(face_files)
-
+    
     def get_next_frames_and_faces(self, num_frames):
         faces_to_use = []
         frames_to_use = []
         for _ in range(num_frames):
+            # 判断索引是否超出范围
             if self.current_index >= self.frames:
+                self.current_index = self.frames - 1
+                self.direction = -1  # 当索引超出范围时，改变方向为逆向
+            elif self.current_index < 0:
                 self.current_index = 0
+                self.direction = 1  # 当索引超出范围时，改变方向为正向
+            # print(f'当前索引 ： {self.current_index}；当前视频帧数 ：{self.frames}；当前人脸帧数：{self.faces}')
             # 读取人脸数据
             loaded_face_results_array = np.load(f'./cache/{self.dirName}/face_{self.current_index}.npy', allow_pickle=True)
             # 读取视频帧数据
             loaded_frame_results_array = np.load(f'./cache/{self.dirName}/frame_{self.current_index}.npy')
             faces_to_use.append(loaded_face_results_array)
             frames_to_use.append(loaded_frame_results_array)
-            self.current_index += 1
-        return faces_to_use,frames_to_use
+            # 根据当前方向更新索引
+            self.current_index += self.direction
+        return faces_to_use, frames_to_use
 
 # 数字人合成
 class DigitalHumanSynthesizer:
-    def __init__(self, video_preprocessor, batch_size=32):
+    def __init__(self, video_preprocessor, batch_size=1):
         self.video_preprocessor = video_preprocessor
         self.batch_size = batch_size
 
@@ -229,11 +239,11 @@ class DigitalHumanSynthesizer:
             "-i", 'temp/result.mp4',
             "-i", audio_file,
             "-c:v", "h264_nvenc",
-            f'temp/result_{timestamp}.mp4' ,
+            f'out/result_{timestamp}.mp4' ,
         ])
         except subprocess.CalledProcessError as e:
             print("FFmpeg command failed with error:", e)
-        file_path =  f'temp/result_{timestamp}.mp4'   
+        file_path =  f'out/result_{timestamp}.mp4'   
         return file_path
             
     def datagen(self, frames, face_det_results, mels):
@@ -323,75 +333,7 @@ class WebSocketServer:
         # 运行主函数
         asyncio.run(self.start_server())
         
-class VideoPlayer:
-    def __init__(self, onNoPlaylist=None, onPlayVideo=None, beforeCallback=None):
-        self.playing = False
-        self.playlist = []
-        self.timer_interval = 1.0  # 定时器间隔(秒)
-        self.onNoPlaylist = onNoPlaylist  # 播放队列是空的时候
-        self.onPlayVideo = onPlayVideo  # 当前正在播放的视频
-        self.onBeforeCallback = beforeCallback  # 播放前的回调
-        self.is_init = False
-        self.lock = threading.Lock()  # Add lock for synchronization
 
-    def play_video(self, video_path):
-        if self.onPlayVideo:
-            self.onPlayVideo(video_path)
-
-        try:
-            clip = VideoFileClip(video_path)
-            clip.preview()
-            os.remove(video_path)
-        except Exception as e:
-            time.sleep(0.3)
-            self.play_video(video_path)
-            print(f"播放器出错: {e}")
-
-    def play_next_video(self):
-        with self.lock:  # Acquire lock before accessing shared resources
-            self.playing = True
-            if self.playlist:
-                video_path = self.playlist.pop(0)
-                if video_path is None:
-                    if self.onNoPlaylist is not None:
-                        self.onNoPlaylist()
-                else:
-                    if self.onBeforeCallback:
-                        threading.Thread(target=self.onBeforeCallback).start()  # Execute callback asynchronously
-                    self.play_video(video_path)
-            else:
-                if self.onNoPlaylist is not None:
-                    self.onNoPlaylist()
-            self.playing = False  # Release lock after modifying shared resources
-
-    def timer_callback(self):
-        while True:
-            # 在这里添加你的定时器逻辑
-            # print("定时器回调 - 调整视频效果")
-            time.sleep(self.timer_interval)
-
-    def start_timer_thread(self):
-        timer_thread = threading.Thread(target=self.timer_callback)
-        timer_thread.daemon = True
-        timer_thread.start()
-
-    def start_player_thread(self):
-        self.is_init = True
-        player_thread = threading.Thread(target=self.player_thread)
-        player_thread.start()
-
-    def player_thread(self):
-        while True:
-            if not self.playing:
-                self.play_next_video()
-
-    def add_to_playlist(self, video_path):
-        with self.lock:  # Acquire lock before accessing shared resources
-            self.playlist.append(video_path)
-
-    def add_insert_playlist(self, video_path):
-        with self.lock:  # Acquire lock before accessing shared resources
-            self.playlist = [video_path] + self.playlist
 class StreamMediaClient:
     def __init__(self, server_url):
         self.server_url = server_url
@@ -410,8 +352,15 @@ class VideoReader:
         self.directory = directory
         video_preprocessor = VideoPreprocessor('20240420_220826')
         self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
-        self.videoPlayer = VideoPlayer()
-        self.client = StreamMediaClient('http://127.0.0.1:5000')
+        # 在单独的线程中执行创建窗口的函数
+        self.player = VideoPlayer()
+        window_thread = threading.Thread(target=create_window, args=(self.player,))
+        window_thread.start()
+
+        # 在单独的线程中执行播放视频
+        video_thread = threading.Thread(target=self.player.play_videos)
+        video_thread.start()
+        # self.client = StreamMediaClient('http://127.0.0.1:5000')
         
 
     def list_video_files(self):
@@ -432,16 +381,70 @@ class VideoReader:
                 # 这里可以加上视频文件的读取逻辑
                 print(f"Reading {oldest_video}")
                 file_path = self.digital_human_synthesizer.generate_digital_human(os.path.join(self.directory, oldest_video), 30)
-                # self.videoPlayer.add_to_playlist(file_path)
-                # if not self.videoPlayer.is_init:
-                #     self.videoPlayer.start_player_thread()
-                response = self.client.upload_file(os.path.abspath(file_path))
+                # self.player.add_video(file_path)
+                #response = self.client.upload_file(os.path.abspath(file_path))
             # 读取完成后可以删除文件
             # os.remove(os.path.join(self.directory, oldest_video))
             # os.remove(file_path)
         else:
             print("No video files found.")
+            
 
+# 创建一个显示窗口的函数
+def create_window(player):
+    player.player_window.set_hwnd(0)  # 使用默认窗口
+    player.player_window.play()
+    
+    
+
+class VideoPlayer:
+    def __init__(self):
+        self.instance = vlc.Instance('--no-xlib --quiet')
+        self.player = self.instance.media_player_new()
+        self.media_list = self.instance.media_list_new([])
+        self.media_list_player = self.instance.media_list_player_new()
+        self.media_list_player.set_media_player(self.player)
+        self.queue = queue.Queue()
+        self.preloaded_filepath = None
+        self.playing = False
+        self.lock = threading.Lock()
+
+        # Create a window to display the video
+        self.player_window = self.instance.media_player_new()
+
+    def play_video(self, filepath):
+        media = self.instance.media_new(filepath)
+        self.media_list.add_media(media)
+        self.media_list_player.set_media_list(self.media_list)
+        self.media_list_player.set_media_player(self.player_window)  
+        self.media_list_player.play()
+
+        while True:
+            time.sleep(0.1)
+            if not self.player_window.is_playing():
+                break
+
+    def preload_video(self):
+        while True:
+            if not self.queue.empty():
+                self.preloaded_filepath = self.queue.get()
+                media = self.instance.media_new(self.preloaded_filepath)
+                self.media_list.add_media(media)
+                self.media_list_player.set_media_list(self.media_list)
+                self.media_list_player.stop()
+            else:
+                time.sleep(1)
+
+    def add_video(self, filepath):
+        self.queue.put(filepath)
+
+    def play_videos(self):
+        while True:
+            if not self.queue.empty():
+                filepath = self.queue.get()
+                threading.Thread(target=self.play_video, args=(filepath,)).start()
+            else:
+                time.sleep(1)
 # 测试
 if __name__ == "__main__":
     video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2\output\create\生成音频")

@@ -609,18 +609,18 @@ def main():
     total=int(np.ceil(float(len(mel_chunks))/batch_size)),
     desc="Processing Wav2Lip",ncols=100
 )):
-        # if i == 0:
+        if i == 0:
 
-        #   if not args.quality=='Fast':
-        #     print(f"mask size: {args.mask_dilation}, feathering: {args.mask_feathering}")  
-        #     if not args.quality=='Improved':   
-        #       print("Loading", args.sr_model)
-        #       run_params = load_sr()
+          if not args.quality=='Fast':
+            print(f"mask size: {args.mask_dilation}, feathering: {args.mask_feathering}")  
+            if not args.quality=='Improved':   
+              print("Loading", args.sr_model)
+              run_params = load_sr()
 
-        # #   print("Starting...")
-        #   frame_h, frame_w = full_frames[0].shape[:-1]
-        #   fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
-        #   out = cv2.VideoWriter('temp/result.mp4', fourcc, fps, (frame_w, frame_h))
+        #   print("Starting...")
+          frame_h, frame_w = full_frames[0].shape[:-1]
+          fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
+          out = cv2.VideoWriter('temp/result.mp4', fourcc, fps, (frame_w, frame_h))
 
         img_batch = torch.FloatTensor(np.transpose(img_batch, (0, 3, 1, 2))).to('cuda')
         mel_batch = torch.FloatTensor(np.transpose(mel_batch, (0, 3, 1, 2))).to('cuda')
@@ -628,33 +628,41 @@ def main():
         with torch.no_grad():
             pred = model(mel_batch, img_batch)
 
-        # pred = pred.cpu().numpy().transpose(0, 2, 3, 1) * 255.
+        pred = pred.cpu().numpy().transpose(0, 2, 3, 1) * 255.
 
-        # for p, f, c in zip(pred, frames, coords):
+        for p, f, c in zip(pred, frames, coords):
             #cv2.imwrite('temp/f.jpg', f)
             
-            # y1, y2, x1, x2 = c
+            y1, y2, x1, x2 = c
 
-            # if str(args.debug_mask) == 'True' and args.quality != "Experimental": #makes the background black & white so you can see the mask better
-            #   f = cv2.cvtColor(f, cv2.COLOR_BGR2GRAY)
-            #   f = cv2.cvtColor(f, cv2.COLOR_GRAY2BGR)
-            # of=f
-            # p = cv2.resize(p.astype(np.uint8), (x2 - x1, y2 - y1))
-            # cf = f[y1:y2, x1:x2]
+            if str(args.debug_mask) == 'True' and args.quality != "Experimental": #makes the background black & white so you can see the mask better
+              f = cv2.cvtColor(f, cv2.COLOR_BGR2GRAY)
+              f = cv2.cvtColor(f, cv2.COLOR_GRAY2BGR)
+            of=f
+            p = cv2.resize(p.astype(np.uint8), (x2 - x1, y2 - y1))
+            cf = f[y1:y2, x1:x2]
             
-            # f[y1:y2, x1:x2] = p
+            f[y1:y2, x1:x2] = p
             # cv2.imwrite('temp/p.jpg', f)
-            # out.write(f)
+            out.write(f)
               
             # 显示每一帧图像
             # cv2.imshow('Processed Frame', f)
             # cv2.waitKey(1)  # 等待1毫秒以确保图像显示在窗口中
 
-    # out.release()
+    out.release()
     end_time = time.time()
     execution_time = end_time - start_time
     print(f"代码块执行时间为: {execution_time} 秒")
     # cv2.destroyAllWindows()  # 在结束时关闭OpenCV窗口
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    subprocess.check_call([
+        "ffmpeg.exe", "-y", "-loglevel", "error",
+        "-i", "temp/result.mp4",
+        "-i", args.audio,
+        "-c:v", "h264_nvenc",
+        f'out/result_{timestamp}_.mp4' ,
+      ])
 
 if __name__ == '__main__':
     do_load(args.checkpoint_path)

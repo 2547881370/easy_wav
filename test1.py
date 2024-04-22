@@ -1,40 +1,91 @@
-import cv2
-from flask import Flask, Response
-import queue
 import threading
+import vlc
+import queue
 import time
 
-app = Flask(__name__)
+class VideoPlayer:
+    def __init__(self):
+        self.instance = vlc.Instance('--no-xlib --quiet')
+        self.player = self.instance.media_player_new()
+        self.media_list = self.instance.media_list_new([])
+        self.media_list_player = self.instance.media_list_player_new()
+        self.media_list_player.set_media_player(self.player)
+        self.queue = queue.Queue()
+        self.preloaded_filepath = None
+        self.playing = False
+        self.lock = threading.Lock()
 
-q = queue.Queue()
+        # Create a window to display the video
+        self.player_window = self.instance.media_player_new()
 
-def feed():
-    while True:
-        if not q.empty():
-            video_path = q.get()
-            video = cv2.VideoCapture(video_path)
-            while True:
-                ret, frame = video.read()
-                if not ret:
-                    break
-                frame = cv2.imencode('.jpg', frame)[1].tobytes()
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-            video.release()
-        else:
+    def play_video(self, filepath):
+        media = self.instance.media_new(filepath)
+        self.media_list.add_media(media)
+        self.media_list_player.set_media_list(self.media_list)
+        self.media_list_player.set_media_player(self.player_window)  
+        self.media_list_player.play()
+
+        while True:
+            time.sleep(0.1)
+            if not self.player_window.is_playing():
+                break
+
+    def preload_video(self):
+        while True:
+            if not self.queue.empty():
+                self.preloaded_filepath = self.queue.get()
+                media = self.instance.media_new(self.preloaded_filepath)
+                self.media_list.add_media(media)
+                self.media_list_player.set_media_list(self.media_list)
+                self.media_list_player.stop()
+            else:
+                time.sleep(1)
+
+    def add_video(self, filepath):
+        self.queue.put(filepath)
+
+    def play_videos(self):
+        while True:
+            if not self.queue.empty():
+                filepath = self.queue.get()
+                threading.Thread(target=self.play_video, args=(filepath,)).start()
+            else:
+                time.sleep(1)
+
+# Function to create the window for video display
+def create_window(player):
+    player.player_window.set_hwnd(0)  # Use the default window
+    player.player_window.play()
+
+# Main function
+if __name__ == "__main__":
+    player = VideoPlayer()
+
+    # Start the window creation thread
+    window_thread = threading.Thread(target=create_window, args=(player,))
+    window_thread.start()
+
+    # Start the video playback thread
+    video_thread = threading.Thread(target=player.play_videos)
+    video_thread.start()
+
+    # Add videos to the queue
+    player.add_video("./out/result_20240421_233436.mp4")
+    time.sleep(10)
+    player.add_video("./out/result_20240421_233440.mp4")
+    time.sleep(3)
+    player.add_video("./out/result_20240421_233443.mp4")
+    time.sleep(3)
+    player.add_video("./out/result_20240421_233447.mp4")
+    time.sleep(3)
+    player.add_video("./out/result_20240421_233451.mp4")
+    time.sleep(3)
+    player.add_video("./out/result_20240421_233455.mp4")
+
+    # Main thread continues executing other tasks
+    try:
+        while True:
             time.sleep(1)
-
-@app.route('/video_feed')
-def video_feed():
-    return Response(feed(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
-
-def enqueue_video():
-    while True:
-        video_path = input("Enter the path of a mp4 video: ")
-        q.put(video_path)
-
-if __name__ == '__main__':
-    t = threading.Thread(target=enqueue_video)
-    t.start()
-    app.run(host='0.0.0.0', port='5000')
+            print("Main thread is still running...")
+    except KeyboardInterrupt:
+        print("Main thread exits.")
