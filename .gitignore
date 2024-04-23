@@ -14,3 +14,10 @@ Easy_Wav2Lip_v8.1.ipynb
 run_loop.bat
 run_loop.sh
 cache
+MonaServer_Win64/cert.pem
+MonaServer_Win64/key.pem
+MonaServer_Win64/lua51.dll
+MonaServer_Win64/MonaServer.exe
+MonaServer_Win64/MonaServer.ini
+MonaServer_Win64/MonaServer.log/0.log
+MonaServer_Win64/www/live/README
