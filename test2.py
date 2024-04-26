@@ -1,3 +1,6 @@
+import json
+import threading
+import time
 import cv2
 import pygame
 import socket
@@ -53,40 +56,48 @@ class VideoPlayer:
             # os.remove(self.path[audio_path])
         self.playing = False
 
-def main():
+def read_next_video(file_path, oldest_video):
+        player.add_video(file_path, oldest_video)
+                
+        print("执行",file_path, oldest_video)
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                player.playing = False
+                pygame.quit()
+                return
+
+        if not player.playing and player.audio_paths:
+            player.play(screen)
+        
+        
+def read_and_remove_first_object(json_file = 'video_data.json'):
+    with open(json_file, 'r') as f:
+        data = json.load(f)
+        if not data:
+            return None
+        
+        first_object = data.pop(0)
+        with open(json_file, 'w') as f:
+            json.dump(data, f, indent=4)
+        
+        return first_object
+        
+# 测试
+if __name__ == "__main__":
     pygame.init()
     screen = pygame.display.set_mode((800, 500))
     player = VideoPlayer()
+    
+    while True:
+        read_result = read_and_remove_first_object()
+        if read_result:
+            print("读取到的数据：", read_result.get('file_path'), read_result.get('oldest_video'))
+            read_next_video(read_result.get('file_path'),read_result.get('oldest_video'))
+        time.sleep(0.5)
 
-    HOST = '127.0.0.1'  # 服务器主机地址
-    PORT = 65432        # 服务器端口号
+            
+    
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((HOST, PORT))
-        s.listen()
 
-        print(f"Server listening on {HOST}:{PORT}")
-
-        while True:
-            conn, addr = s.accept()
-            with conn:
-                print('Connected by', addr)
-                data = conn.recv(1024)
-                if not data:
-                    break
-
-                file_path, oldest_video = data.decode().split(",")
-                print(file_path, oldest_video)
-                player.add_video(file_path, oldest_video)
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    player.playing = False
-                    pygame.quit()
-                    return
-
-            if not player.playing and player.audio_paths:
-                player.play(screen)
-
-if __name__ == "__main__":
-    main()
+    

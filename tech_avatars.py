@@ -1,6 +1,9 @@
 import datetime
+import socket
 import subprocess
 import asyncio
+import json
+import pygame
 import requests
 import torch
 import numpy as np
@@ -19,6 +22,10 @@ import threading
 import time
 import vlc
 import queue
+from flask import Flask, request, jsonify
+
+# from video_player import VideoPlayer
+
 
 # 加载基础环境变量
 class base_tech_avatars_init:
@@ -36,7 +43,7 @@ class base_tech_avatars_init:
             with open(os.path.join('checkpoints','mouth_detector.pkl'), 'rb') as f:
                 self.mouth_detector = pickle.load(f)
                 
-            self.do_load('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\checkpoints\\Wav2Lip.pth')
+            self.do_load('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-mian-0229\\checkpoints\\Wav2Lip.pth')
                 
     def do_load(self,checkpoint_path):
             self.model = load_model(checkpoint_path)
@@ -136,7 +143,7 @@ class VideoPreprocessing:
             return boxes
  
  
-# newVideoPreprocessing = VideoPreprocessing('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\demo3.mp4')
+# newVideoPreprocessing = VideoPreprocessing('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-main-0229\\temp\\demo3.mp4')
 # fps = newVideoPreprocessing.extract_faces()
 
 # 数字人处理进度维护
@@ -295,42 +302,22 @@ class AudioUtils:
                 mel_chunks.append(mel[:, start_idx : start_idx + new_base_tech_avatars_init.mel_step_size])
                 i += 1
             return mel_chunks
-        
-# ws服务
-class WebSocketServer:
-    def __init__(self, host, port):
+
+
+# 专门用于订阅soket
+class VideoDataSubscriber:
+    def __init__(self, host='127.0.0.1', port=65432):
         self.host = host
         self.port = port
-        self.server = None
-        video_preprocessor = VideoPreprocessor('20240423_235357')
-        self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
-        self.videoPlayer = VideoPlayer()
-        self.videoPlayer.start_player_thread()
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect((self.host, self.port))
 
-    async def handle_message(self, message):
-        # 在这里处理序列化后的消息
-        print(message)
-        # self.videoPlayer.add_to_playlist(message)
+    def send_video_data(self, file_path, oldest_video):
+        self.socket.sendall(f"{file_path},{oldest_video}".encode())
+        print("Data sent to server")
 
-    async def echo(self, websocket, path):
-        async for message in websocket:
-            # 处理收到的消息
-            await self.handle_message(message)
-
-    async def start_server(self):
-        # 创建 WebSocket 服务器,监听指定的主机和端口
-        self.server = await websockets.serve(self.echo, self.host, self.port)
-
-        # 输出服务器地址信息
-        print(f"WebSocket 服务器运行在 {self.server.sockets[0].getsockname()}")
-
-        # 保持服务器运行
-        await self.server.wait_closed()
-
-    def run(self):
-        # 运行主函数
-        asyncio.run(self.start_server())
-        
+    def close_connection(self):
+        self.socket.close()
 
 class StreamMediaClient:
     def __init__(self, server_url):
@@ -340,162 +327,118 @@ class StreamMediaClient:
         url = self.server_url + '/enqueue_video'
         response = requests.post(url, data={'video_path': file_path})
         return response.text
+    
+    def send_upload_file(self, file_path,oldest_video):
+        url = self.server_url + '/enqueue_video'
+        response = requests.post(url, data={'file_path': file_path,'oldest_video': oldest_video})
+        return response.text
 
     def stream_media(self):
         url = self.server_url + '/stream'
         return requests.get(url, stream=True).content
+
+
+wav_path_files = []
+app = Flask(__name__)    
+@app.route('/enqueue_video', methods=['POST'])
+def enqueue_video():
+    file_path = request.form.get('file_path')
+    if not file_path:
+        return jsonify({'error': 'Missing file_path parameter'}), 400
     
+    wav_path_files.append(file_path)
+    return jsonify({'message': 'Video enqueued successfully'})
+
+def write_json_file(file_path, new_file_path, new_oldest_video):
+    try:
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+    except FileNotFoundError:
+        data = []
+
+    if new_file_path and new_oldest_video:
+        new_data = {'file_path': new_file_path, 'oldest_video': new_oldest_video}
+        data.append(new_data)
+
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
+    else:
+        print("file_path和oldest_video不能为空")
+
+# 主程序        
 class VideoReader:
     def __init__(self, directory):
         self.directory = directory
         video_preprocessor = VideoPreprocessor('20240418_235942')
         self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
-        # # 在单独的线程中执行创建窗口的函数
-        self.player = VideoPlayer()
-        window_thread = threading.Thread(target=create_window, args=(self.player,))
-        window_thread.start()
-
-        # # 在单独的线程中执行播放视频
-        video_thread = threading.Thread(target=self.player.play_videos)
-        video_thread.start()
-        # self.client = StreamMediaClient('http://127.0.0.1:5000')
-        # self.pusher = RTMPPusher('rtmp://192.168.1.27:1935')
+        self.streamMediaClient = StreamMediaClient('http://127.0.0.1:9999')     
+        # pygame.init()
+        # self.screen = pygame.display.set_mode((800, 500))
+        # self.player = VideoPlayer()   
         
+        # init_video_thread = threading.Thread(target=self.video_init)
+        # init_video_thread.daemon = True
+        # init_video_thread.start()
+    
+    def video_init(self):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.player.playing = False
+                    pygame.quit()
+                    return
 
+            if not self.player.playing and self.player.audio_paths:
+                self.player.play(self.screen)
+        
     def list_video_files(self):
-        # 获取目录下所有文件
-        files = os.listdir(self.directory)
-        # 过滤出视频文件
-        video_files = [f for f in files if f.endswith('.wav')]
-        # 按文件创建时间从老到新排序
-        video_files.sort(key=lambda x: os.path.getctime(os.path.join(self.directory, x)))
-        return video_files
+        if len(wav_path_files) > 0:
+            return wav_path_files.pop(0)
+        else :
+            return None
+        
+    def run_video(self,file_path, oldest_video):
+        self.player.add_video(file_path, oldest_video)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.player.playing = False
+                pygame.quit()
+                return
+
+        if not self.player.playing and self.player.audio_paths:
+            self.player.play(self.screen)
+    
+    def send_video_data(self,file_path, oldest_video):
+        # self.videoDataSubscriber.send_video_data(file_path, oldest_video)
+        # video_thread = threading.Thread(target=self.run_video,args=(file_path, oldest_video,))
+        # video_thread.daemon = True
+        # video_thread.start()
+        # self.streamMediaClient.send_upload_file(file_path, oldest_video)
+        write_json_file('video_data.json', file_path, oldest_video)
 
     def read_next_video(self):
-        video_files = self.list_video_files()
-        if video_files:
-            # 读取最老的视频文件
-            oldest_video = video_files[0]
-            with open(os.path.join(self.directory, oldest_video), 'rb') as f:
-                # 这里可以加上视频文件的读取逻辑
-                print(f"Reading {oldest_video}")
-                file_path = self.digital_human_synthesizer.generate_digital_human(os.path.join(self.directory, oldest_video), 20)
-                # self.pusher.add_to_queue(file_path)
-                # self.pusher.add_to_queue(file_path)
-                self.player.add_video(file_path)
+        video_file = self.list_video_files()
+        if video_file:
+            video_file = video_file
+            # 这里可以加上视频文件的读取逻辑
+            print(f"Reading {video_file}")
+            file_path = self.digital_human_synthesizer.generate_digital_human(video_file, 20)
+            self.send_video_data(
+                file_path,
+                video_file
+            )
+                
             # 读取完成后可以删除文件
-            os.remove(os.path.join(self.directory, oldest_video))
+            # os.remove(os.path.join(self.directory, oldest_video))
             # os.remove(file_path)
-        else:
-            print("No video files found.")
-            
 
-# 创建一个显示窗口的函数
-def create_window(player):
-    player.player_window.set_hwnd(0)  # 使用默认窗口
-    player.player_window.play()
-    
-
-
-# rtmp推流
-class RTMPPusher:
-    def __init__(self, rtmp_address):
-        self.rtmp_address = rtmp_address
-        self.queue = queue.Queue()
-        self.is_pushing = False
-        self.lock = threading.Lock()
-        self.push_thread = threading.Thread(target=self._push_loop)
-        self.push_thread.daemon = True
-        self.push_thread.start()
-
-    def add_to_queue(self, mp4_url):
-        self.queue.put(mp4_url)
-
-    def _push_loop(self):
-        while True:
-            time.sleep(0.2)
-            if not self.queue.empty():
-                with self.lock:
-                    if not self.is_pushing:
-                        self.is_pushing = True
-                        mp4_url = self.queue.get()
-                        self._push_mp4(mp4_url)
-                        self.is_pushing = False
-                        # 删除已推流的 MP4 地址和文件
-                        # self._delete_mp4_file(mp4_url)
-
-    def _push_mp4(self, mp4_url):
-        ffmpeg_cmd = [
-            'ffmpeg',
-            '-i', mp4_url,
-            '-c:v', 'copy',
-            '-c:a', 'aac',
-            '-strict', 'experimental',
-            '-f', 'flv',
-            self.rtmp_address
-        ]
-        subprocess.call(ffmpeg_cmd)
-
-    def _delete_mp4_file(self, mp4_url):
-        try:
-            os.remove(mp4_url)
-            print(f"Deleted file: {mp4_url}")
-        except Exception as e:
-            print(f"Error deleting file: {mp4_url}, {e}")
-
-# 视频播放
-class VideoPlayer:
-    def __init__(self):
-        self.instance = vlc.Instance('--no-xlib --quiet')
-        self.player = self.instance.media_player_new()
-        self.media_list = self.instance.media_list_new([])
-        self.media_list_player = self.instance.media_list_player_new()
-        self.media_list_player.set_media_player(self.player)
-        self.queue = queue.Queue()
-        self.preloaded_filepath = None
-        self.playing = False
-        self.lock = threading.Lock()
-
-        # Create a window to display the video
-        self.player_window = self.instance.media_player_new()
-
-    def play_video(self, filepath):
-        media = self.instance.media_new(filepath)
-        self.media_list.add_media(media)
-        self.media_list_player.set_media_list(self.media_list)
-        self.media_list_player.set_media_player(self.player_window)  
-        self.media_list_player.play()
-        
-        # 设置播放速度
-        # self.player_window.set_rate(0.8)  
-
-        while True:
-            time.sleep(0.1)
-            if not self.player_window.is_playing():
-                # os.remove(filepath)  # 删除视频文件
-                break
-
-    def add_video(self, filepath):
-        if filepath != self.preloaded_filepath:  # Check if the video is not already in the queue
-            self.queue.put(filepath)
-
-    def play_videos(self):
-        while True:
-            if not self.queue.empty():
-                filepath = self.queue.get()
-                threading.Thread(target=self.play_video, args=(filepath,)).start()
-            else:
-                time.sleep(0.1)
-# 测试
-if __name__ == "__main__":
-    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2\output\create\生成音频")
+def read_next_video():
     while True:
         video_reader.read_next_video()
-
-# video_preprocessor = VideoPreprocessor('20240420_220826')
-# digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
-# digital_human_synthesizer.generate_digital_human('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\test1.wav',30)
-# digital_human_synthesizer.generate_digital_human('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-眠-0229\\temp\\test2.wav',30)
-
-# ws_server = WebSocketServer("127.0.0.1", 9999)
-# ws_server.run()
+# 测试
+if __name__ == "__main__":
+    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2")
+    server_thread = threading.Thread(target=read_next_video)
+    server_thread.daemon = True
+    server_thread.start()
+    app.run(threaded=True)

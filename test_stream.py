@@ -107,105 +107,105 @@ class Streamer:
 # 使用cv2读取显示视频
  
 # 引入math
-import math
-# 引入opencv
-import cv2
-from ffpyplayer.player import MediaPlayer
+# import math
+# # 引入opencv
+# import cv2
+# from ffpyplayer.player import MediaPlayer
 # opencv获取本地视频
  
 
 # Global variables
-video_queue = queue.Queue()
-current_video_path = None
-next_video_path = None
-playback_finished = threading.Event()
-video_window_name = "Video Player"
+# video_queue = queue.Queue()
+# current_video_path = None
+# next_video_path = None
+# playback_finished = threading.Event()
+# video_window_name = "Video Player"
 
-def play_video(video_path, audio_play=True):
-    global current_video_path, next_video_path, playback_finished
-    cap = cv2.VideoCapture(video_path)
-    if audio_play:
-        player = MediaPlayer(video_path)
-    isopen = cap.isOpened()
-    if not isopen:
-        print("Err: Video is failure. Exiting ...")
-        return
+# def play_video(video_path, audio_play=True):
+#     global current_video_path, next_video_path, playback_finished
+#     cap = cv2.VideoCapture(video_path)
+#     if audio_play:
+#         player = MediaPlayer(video_path)
+#     isopen = cap.isOpened()
+#     if not isopen:
+#         print("Err: Video is failure. Exiting ...")
+#         return
     
-    total_frame = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    wait = int(1000 / fps) if fps else 1
-    read_frame = 0
+#     total_frame = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+#     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+#     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+#     fps = cap.get(cv2.CAP_PROP_FPS)
+#     wait = int(1000 / fps) if fps else 1
+#     read_frame = 0
 
-    # Create video window if not already open
-    cv2.namedWindow(video_window_name, cv2.WINDOW_NORMAL)
-    cv2.resizeWindow(video_window_name, frame_width, frame_height)
+#     # Create video window if not already open
+#     cv2.namedWindow(video_window_name, cv2.WINDOW_NORMAL)
+#     cv2.resizeWindow(video_window_name, frame_width, frame_height)
 
-    while isopen:
-        ret, frame = cap.read()
-        if not ret:
-            if read_frame < total_frame:
-                print("Err: Can't receive frame. Exiting ...")
-            else:
-                print("Info: Stream is End")
-            break
+#     while isopen:
+#         ret, frame = cap.read()
+#         if not ret:
+#             if read_frame < total_frame:
+#                 print("Err: Can't receive frame. Exiting ...")
+#             else:
+#                 print("Info: Stream is End")
+#             break
 
-        read_frame += 1
-        cv2.putText(frame, "[{}/{}]".format(str(read_frame), str(int(total_frame))), (20, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 9), 2)
-        dst = cv2.resize(frame, (1920//2, 1080//2), interpolation=cv2.INTER_CUBIC)
-        timecode_h = int(read_frame / fps / 60 / 60)
-        timecode_m = int(read_frame / fps / 60)
-        timecode_s = read_frame / fps % 60
-        s = math.modf(timecode_s)
-        timecode_s = int(timecode_s)
-        timecode_f = int(s[0] * fps)
-        print("{:0>2d}:{:0>2d}:{:0>2d}.{:0>2d}".format(timecode_h, timecode_m, timecode_s, timecode_f))
+#         read_frame += 1
+#         cv2.putText(frame, "[{}/{}]".format(str(read_frame), str(int(total_frame))), (20, 50),
+#                     cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 9), 2)
+#         dst = cv2.resize(frame, (1920//2, 1080//2), interpolation=cv2.INTER_CUBIC)
+#         timecode_h = int(read_frame / fps / 60 / 60)
+#         timecode_m = int(read_frame / fps / 60)
+#         timecode_s = read_frame / fps % 60
+#         s = math.modf(timecode_s)
+#         timecode_s = int(timecode_s)
+#         timecode_f = int(s[0] * fps)
+#         print("{:0>2d}:{:0>2d}:{:0>2d}.{:0>2d}".format(timecode_h, timecode_m, timecode_s, timecode_f))
 
-        cv2.imshow(video_window_name, dst)
-        wk = cv2.waitKey(wait)
-        keycode = wk & 0xff
+#         cv2.imshow(video_window_name, dst)
+#         wk = cv2.waitKey(wait)
+#         keycode = wk & 0xff
 
-        if keycode == ord(" "):
-            cv2.waitKey(0)
+#         if keycode == ord(" "):
+#             cv2.waitKey(0)
 
-        if keycode == ord('q'):
-            print("Info: By user Cancal ...")
-            break
+#         if keycode == ord('q'):
+#             print("Info: By user Cancal ...")
+#             break
 
-        # Preload the next video while the current one is playing
-        if read_frame == total_frame // 2 and next_video_path:
-            cap.release()
-            cv2.destroyAllWindows()
-            play_video(next_video_path)
-            break
+#         # Preload the next video while the current one is playing
+#         if read_frame == total_frame // 2 and next_video_path:
+#             cap.release()
+#             cv2.destroyAllWindows()
+#             play_video(next_video_path)
+#             break
 
-    cap.release()
-    cv2.destroyAllWindows()
-    playback_finished.set()
+#     cap.release()
+#     cv2.destroyAllWindows()
+#     playback_finished.set()
 
-def video_player():
-    global current_video_path, next_video_path, playback_finished
-    while True:
-        if not video_queue.empty():
-            if current_video_path:
-                playback_finished.wait()  # Wait for the previous video to finish
-                playback_finished.clear()
-            current_video_path = video_queue.get()
-            if not video_queue.empty():
-                next_video_path = video_queue.queue[0]  # Preload the next video
-            else:
-                next_video_path = None
-            play_video(current_video_path)
-        else:
-            if current_video_path:
-                playback_finished.wait()  # Wait for the last video to finish
-                current_video_path = None
-                next_video_path = None
-                print("Info: All videos played.")
-                break
-if __name__ == "__main__":
+# def video_player():
+#     global current_video_path, next_video_path, playback_finished
+#     while True:
+#         if not video_queue.empty():
+#             if current_video_path:
+#                 playback_finished.wait()  # Wait for the previous video to finish
+#                 playback_finished.clear()
+#             current_video_path = video_queue.get()
+#             if not video_queue.empty():
+#                 next_video_path = video_queue.queue[0]  # Preload the next video
+#             else:
+#                 next_video_path = None
+#             play_video(current_video_path)
+#         else:
+#             if current_video_path:
+#                 playback_finished.wait()  # Wait for the last video to finish
+#                 current_video_path = None
+#                 next_video_path = None
+#                 print("Info: All videos played.")
+#                 break
+# if __name__ == "__main__":
     # Start the video player thread
     player_thread = threading.Thread(target=video_player)
     player_thread.start()
@@ -218,27 +218,26 @@ if __name__ == "__main__":
 
     # Wait for the player thread to finish
     player_thread.join()
-# import os
-# import subprocess
+import os
+import subprocess
 
-# # 设置RTMP地址
-# rtmp_address = "rtmp://127.0.0.1:1935/live/hls"
+# 设置RTMP地址
+rtmp_address = "rtmp://127.0.0.1:1935/live/hls"
 
 
+# 获取out文件夹中所有视频文件路径
+out_folder = "out"
+video_files = [os.path.join(out_folder, f) for f in os.listdir(out_folder) if os.path.isfile(os.path.join(out_folder, f))]
 
-# # 获取out文件夹中所有视频文件路径
-# out_folder = "out"
-# video_files = [os.path.join(out_folder, f) for f in os.listdir(out_folder) if os.path.isfile(os.path.join(out_folder, f))]
+# 按照文件创建时间排序
+video_files.sort(key=os.path.getctime)
 
-# # 按照文件创建时间排序
-# video_files.sort(key=os.path.getctime)
-
-# # 循环推流视频文件到RTMP地址
-# for video_file in video_files:
-#     # 使用subprocess调用ffmpeg命令推流视频到RTMP地址
-#     # subprocess.run(['ffmpeg', '-re', '-i', video_file, '-c', 'copy', '-f', 'flv', rtmp_address])
-#     subprocess.run([
-#         "ffmpeg", "-re", "-i", video_file,
-#         "-c:v", "h264_nvenc", "-preset", "fast", "-c:a", "aac",
-#         "-f", "flv", rtmp_address
-#     ])
+# 循环推流视频文件到RTMP地址
+for video_file in video_files:
+    # 使用subprocess调用ffmpeg命令推流视频到RTMP地址
+    # subprocess.run(['ffmpeg', '-re', '-i', video_file, '-c', 'copy', '-f', 'flv', rtmp_address])
+    subprocess.run([
+        "ffmpeg", "-re", "-i", video_file,
+        "-c:v", "h264_nvenc", "-preset", "fast", "-c:a", "aac",
+        "-f", "flv", rtmp_address
+    ])

@@ -1,91 +1,54 @@
-import threading
-import vlc
-import queue
+import socket
 import time
 
-class VideoPlayer:
-    def __init__(self):
-        self.instance = vlc.Instance('--no-xlib --quiet')
-        self.player = self.instance.media_player_new()
-        self.media_list = self.instance.media_list_new([])
-        self.media_list_player = self.instance.media_list_player_new()
-        self.media_list_player.set_media_player(self.player)
-        self.queue = queue.Queue()
-        self.preloaded_filepath = None
-        self.playing = False
-        self.lock = threading.Lock()
+import requests
 
-        # Create a window to display the video
-        self.player_window = self.instance.media_player_new()
 
-    def play_video(self, filepath):
-        media = self.instance.media_new(filepath)
-        self.media_list.add_media(media)
-        self.media_list_player.set_media_list(self.media_list)
-        self.media_list_player.set_media_player(self.player_window)  
-        self.media_list_player.play()
 
-        while True:
-            time.sleep(0.1)
-            if not self.player_window.is_playing():
-                break
+class VideoDataSubscriber:
+    def __init__(self, host='127.0.0.1', port=65432):
+        self.host = host
+        self.port = port
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect((self.host, self.port))
 
-    def preload_video(self):
-        while True:
-            if not self.queue.empty():
-                self.preloaded_filepath = self.queue.get()
-                media = self.instance.media_new(self.preloaded_filepath)
-                self.media_list.add_media(media)
-                self.media_list_player.set_media_list(self.media_list)
-                self.media_list_player.stop()
-            else:
-                time.sleep(1)
+    def send_video_data(self, file_path, oldest_video):
+        self.socket.sendall(f"{file_path},{oldest_video}".encode())
+        print("Data sent to server")
 
-    def add_video(self, filepath):
-        self.queue.put(filepath)
+    def close_connection(self):
+        self.socket.close()
+        
+class StreamMediaClient:
+    def __init__(self, server_url):
+        self.server_url = server_url
 
-    def play_videos(self):
-        while True:
-            if not self.queue.empty():
-                filepath = self.queue.get()
-                threading.Thread(target=self.play_video, args=(filepath,)).start()
-            else:
-                time.sleep(1)
+    def upload_file(self, file_path):
+        url = self.server_url + '/enqueue_video'
+        response = requests.post(url, data={'video_path': file_path})
+        return response.text
+    
+    def send_upload_file(self, file_path,oldest_video):
+        url = self.server_url + '/enqueue_video'
+        response = requests.post(url, data={'file_path': file_path,'oldest_video': oldest_video})
+        return response.text
 
-# Function to create the window for video display
-def create_window(player):
-    player.player_window.set_hwnd(0)  # Use the default window
-    player.player_window.play()
+    def stream_media(self):
+        url = self.server_url + '/stream'
+        return requests.get(url, stream=True).content
+        
+# videoDataSubscriber = VideoDataSubscriber()
+# videoDataSubscriber.send_video_data(
+#     'out/result_20240423_142253.mp4',
+#     'G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\生成音频\\20240426_180217.wav'
+# )
 
-# Main function
-if __name__ == "__main__":
-    player = VideoPlayer()
 
-    # Start the window creation thread
-    window_thread = threading.Thread(target=create_window, args=(player,))
-    window_thread.start()
+videoDataSubscriber = StreamMediaClient('http://127.0.0.1:9999')
+videoDataSubscriber.send_upload_file(
+    'out/result_20240423_142253.mp4',
+    'G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\生成音频\\20240426_180217.wav'
+)
 
-    # Start the video playback thread
-    video_thread = threading.Thread(target=player.play_videos)
-    video_thread.start()
-
-    # Add videos to the queue
-    player.add_video("./out/result_20240421_233436.mp4")
-    time.sleep(10)
-    player.add_video("./out/result_20240421_233440.mp4")
-    time.sleep(3)
-    player.add_video("./out/result_20240421_233443.mp4")
-    time.sleep(3)
-    player.add_video("./out/result_20240421_233447.mp4")
-    time.sleep(3)
-    player.add_video("./out/result_20240421_233451.mp4")
-    time.sleep(3)
-    player.add_video("./out/result_20240421_233455.mp4")
-
-    # Main thread continues executing other tasks
-    try:
-        while True:
-            time.sleep(1)
-            print("Main thread is still running...")
-    except KeyboardInterrupt:
-        print("Main thread exits.")
+while True:
+    time.sleep(1000)

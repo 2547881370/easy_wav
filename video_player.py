@@ -1,7 +1,10 @@
+import threading
+import time
 import cv2
 import pygame
 import socket
 import os
+from flask import Flask, request, jsonify
 
 class VideoPlayer:
     def __init__(self):
@@ -78,7 +81,8 @@ def main():
                 file_path, oldest_video = data.decode().split(",")
                 print(file_path, oldest_video)
                 player.add_video(file_path, oldest_video)
-
+            
+            print("执行")
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     player.playing = False
@@ -88,5 +92,41 @@ def main():
             if not player.playing and player.audio_paths:
                 player.play(screen)
 
+app = Flask(__name__)    
+@app.route('/enqueue_video', methods=['POST'])
+def enqueue_video():
+    file_path = request.form.get('file_path')
+    oldest_video = request.form.get('oldest_video')
+    if not file_path:
+        return jsonify({'error': 'Missing file_path parameter'}), 400
+    
+    read_next_video(file_path,oldest_video)
+    
+    return jsonify({'message': 'Video enqueued successfully'})
+
+
+def read_next_video(file_path, oldest_video):
+        player.add_video(file_path, oldest_video)
+                
+        print("执行",file_path, oldest_video)
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                player.playing = False
+                pygame.quit()
+                return
+
+        if not player.playing and player.audio_paths:
+            player.play(screen)
+        
+# 测试
 if __name__ == "__main__":
-    main()
+    pygame.init()
+    screen = pygame.display.set_mode((800, 500))
+    player = VideoPlayer()
+    
+    app.run(threaded=True,port=9999)
+    
+
+
+    
