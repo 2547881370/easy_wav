@@ -371,49 +371,14 @@ class VideoReader:
         self.directory = directory
         video_preprocessor = VideoPreprocessor('20240418_235942')
         self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
-        self.streamMediaClient = StreamMediaClient('http://127.0.0.1:9999')     
-        # pygame.init()
-        # self.screen = pygame.display.set_mode((800, 500))
-        # self.player = VideoPlayer()   
-        
-        # init_video_thread = threading.Thread(target=self.video_init)
-        # init_video_thread.daemon = True
-        # init_video_thread.start()
     
-    def video_init(self):
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.player.playing = False
-                    pygame.quit()
-                    return
-
-            if not self.player.playing and self.player.audio_paths:
-                self.player.play(self.screen)
-        
     def list_video_files(self):
         if len(wav_path_files) > 0:
             return wav_path_files.pop(0)
         else :
             return None
         
-    def run_video(self,file_path, oldest_video):
-        self.player.add_video(file_path, oldest_video)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.player.playing = False
-                pygame.quit()
-                return
-
-        if not self.player.playing and self.player.audio_paths:
-            self.player.play(self.screen)
-    
     def send_video_data(self,file_path, oldest_video):
-        # self.videoDataSubscriber.send_video_data(file_path, oldest_video)
-        # video_thread = threading.Thread(target=self.run_video,args=(file_path, oldest_video,))
-        # video_thread.daemon = True
-        # video_thread.start()
-        # self.streamMediaClient.send_upload_file(file_path, oldest_video)
         write_json_file('video_data.json', file_path, oldest_video)
 
     def read_next_video(self):
