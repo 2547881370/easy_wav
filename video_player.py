@@ -3,7 +3,6 @@ import threading
 import time
 import cv2
 import pygame
-import socket
 import os
 from flask import Flask, request, jsonify
 
@@ -13,6 +12,7 @@ class VideoPlayer:
         self.audio_paths = []
         self.playing = False
         self.path = {}
+        self.files_to_delete = []
 
     def add_video(self, video_path, audio_path):
         cap = cv2.VideoCapture(video_path)
@@ -66,9 +66,24 @@ class VideoPlayer:
                 clock.tick(20)
             pygame.mixer.music.stop()
             del self.video_frames[audio_path]
-            # os.remove(audio_path)
-            # os.remove(self.path[audio_path])
+            
+            file_timestamp = time.time()
+            threading.Thread(target=self.handle_file_deletion, args=(audio_path, file_timestamp)).start()
+            
         self.playing = False
+        
+    def handle_file_deletion(self, file_path, timestamp):
+        while True:
+            current_time = time.time()
+            if current_time - timestamp > 10:
+                try:
+                    os.remove(file_path)
+                    os.remove(self.path[file_path])
+                except FileNotFoundError:
+                    # Handle the case where the file has already been removed
+                    pass
+                break
+            time.sleep(1)
 
 def read_and_remove_first_object(json_file = 'video_data.json'):
     with open(json_file, 'r') as f:
@@ -82,20 +97,17 @@ def read_and_remove_first_object(json_file = 'video_data.json'):
         
         return first_object
             
-            
-# 测试
+# Test the video player
 if __name__ == "__main__":
     pygame.init()
-    screen = pygame.display.set_mode((800, 500))
+    screen = pygame.display.set_mode((800, 800))
     player = VideoPlayer()
 
     while True:
         read_result = read_and_remove_first_object()
         if read_result:
-                player.preload_video(
-                    read_result.get('file_path'),read_result.get('oldest_video')
-                )
-            
+            player.preload_video(read_result.get('file_path'), read_result.get('oldest_video'))
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 player.playing = False
@@ -104,7 +116,3 @@ if __name__ == "__main__":
 
         if not player.playing and player.audio_paths:
             player.play(screen)
-    
-
-
-    
