@@ -213,7 +213,7 @@ class VideoPreprocessor:
             self.current_index += self.direction
             
             # 随机改变方向
-            if random.random() < 0.05:  # 5%的概率改变方向
+            if random.random() < 0.05:  # 0.5%的概率改变方向
                 self.direction *= -1
         return faces_to_use, frames_to_use
 
