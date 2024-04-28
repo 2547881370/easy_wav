@@ -1,4 +1,5 @@
 import datetime
+import random
 import socket
 import subprocess
 import asyncio
@@ -169,6 +170,7 @@ class VideoPreprocessor:
         face_files = [f for f in os.listdir(f'./cache/{self.dirName}/') if f.startswith('face_')]
         self.faces = len(face_files)
     
+    # 正向，反向顺序
     def get_next_frames_and_faces(self, num_frames):
         faces_to_use = []
         frames_to_use = []
@@ -190,6 +192,31 @@ class VideoPreprocessor:
             # 根据当前方向更新索引
             self.current_index += self.direction
         return faces_to_use, frames_to_use
+    
+    # 随机顺序
+    def _get_next_frames_and_faces(self, num_frames):
+        faces_to_use = []
+        frames_to_use = []
+        for _ in range(num_frames):
+            # 读取人脸数据
+            loaded_face_results_array = np.load(f'./cache/{self.dirName}/face_{self.current_index}.npy', allow_pickle=True)
+            # 读取视频帧数据
+            loaded_frame_results_array = np.load(f'./cache/{self.dirName}/frame_{self.current_index}.npy')
+            faces_to_use.append(loaded_face_results_array)
+            frames_to_use.append(loaded_frame_results_array)
+            
+            
+            if self.current_index >= self.frames - 1 and self.direction == 1:
+                self.direction = -1
+            elif self.current_index <= 0 and self.direction == -1:
+                self.direction = 1
+            self.current_index += self.direction
+            
+            # 随机改变方向
+            if random.random() < 0.05:  # 5%的概率改变方向
+                self.direction *= -1
+        return faces_to_use, frames_to_use
+
 
 # 数字人合成
 class DigitalHumanSynthesizer:
