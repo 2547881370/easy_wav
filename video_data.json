@@ -1,1 +1,26 @@
-[]
+[
+    {
+        "file_path": "out/result_20240428_102102.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u4e0d\u7528\u53bb\u8865\u8db3\u4e86\u554a\uff0c\u4e00\u53f7\u94fe\u63a5\u5bb9\u91cf\u5927\uff0c\u4e00\u53f7\u94fe\u63a5\u66f4\u4fbf\u5b9c\uff0c\u5b83\u53ea\u8981\u4e00\u5757\u94b1\u4e00\u6beb\u5347\uff0c\u4e8c\u53f7\u94fe\u63a5\u8981\u3002_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240428_102208.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u76ee\u524d\u662f\u4e00\u96f6\u70b9\u4e00\u4e03\u5206\u4e86,\u6765,\u54e5\u59d0\u4eec,\u6709\u591a\u5c11\u54e5\u54e5\u59d0\u662f\u65b0\u6765\u7684,\u8ddf\u4e3b\u64ad\u6253\u4e2a\u65b0\u5b57\u597d\u4e0d\u597d_create_.wav"
+    },
+    {
+        "file_path": "out/result_20240428_102313.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u5757\u4e09\u6bdb\u94b1\u7684\u554a\uff0c\u6240\u4ee5\u4e70\u4e00\u53f7\u94fe\u63a5\u55bd\uff0c\u54b1\u62ff\u56de\u5bb6\u3002\u7b2c\u4e09\u6b21\u5347\u7ea7\u5c31\u662f\u6210\u5206\u516b\u5927\u6dfb\u52a0\u3002_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240428_102420.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u6ca1\u6709\u9152\u7cbe\u3001\u9999\u7cbe\u3001\u8367\u5149\u5242\u3001\u91cd\u91d1\u5c5e\u3001\u63a7\u6cb9\u7b49\u7b49\u6210\u5206\u6dfb\u52a0\uff0c\u53ea\u8981\u4e0d\u662f\u5b55\u5988\u5988\uff0c\u5341\u4e8c\u5c81\u4ee5\u4e0a\u3002_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240428_102958.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u4e0d\u7528\u53bb\u88dc\u5145\u4e86\u554a\uff0c\u4e00\u53f7\u94fe\u63a5\u5927\u5c0f\u5927\uff0c\u4e00\u53f7\u94fe\u63a5\u66f4\u4fbf\u5b9c\uff0c\u5b83\u53ea\u8981\u4e00\u5757\u94b1\u4e00\u6beb\u5347\uff0c\u4e8c\u53f7\u94fe\u63a5\u8981\u3002_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240428_103127.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u73b0\u5728\u662f\u4e00\u96f6\u70b9\u4e8c\u4e03\u5206\u4e86,\u54e5\u59d0\u4eec\u5982\u679c\u8bf4\u6536\u8d27\u54c8,\u8ddf\u4e3b\u64ad\u8fd9\u8fb9\u5c55\u793a\u7684\u4e0d\u4e00\u6837,\u54e5\u59d0\u4eec\u4e3b\u64ad\u90fd\u662f\u901a\u901a\u7ed9\u4ed6\u5305\u8d54\u7684_create_.wav"
+    }
+]

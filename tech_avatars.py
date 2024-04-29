@@ -24,6 +24,9 @@ import time
 import vlc
 import queue
 from flask import Flask, request, jsonify
+from enhance import upscale
+from enhance import load_sr
+from PIL import Image
 
 # from video_player import VideoPlayer
 
@@ -220,11 +223,98 @@ class VideoPreprocessor:
 
 # 数字人合成
 class DigitalHumanSynthesizer:
-    def __init__(self, video_preprocessor, batch_size=1):
+    def __init__(self, video_preprocessor, batch_size=1,quality = 'Fast'):
         self.video_preprocessor = video_preprocessor
         self.batch_size = batch_size
+        self.kernel = self.last_mask = self.x = self.y = self.w = self.h = None
+        # 数字人处理速度 'Fast' 'Enhanced'
+        self.quality = quality
+        
+    def create_tracked_mask(self,img, original_img): 
+        # Convert color space from BGR to RGB if necessary 
+        cv2.cvtColor(img, cv2.COLOR_BGR2RGB, img) 
+        cv2.cvtColor(original_img, cv2.COLOR_BGR2RGB, original_img) 
+        
+        # Detect face 
+        faces = new_base_tech_avatars_init.mouth_detector(img) 
+        if len(faces) == 0: 
+            if self.last_mask is not None: 
+                self.last_mask = cv2.resize(self.last_mask, (img.shape[1], img.shape[0]))
+                mask = self.last_mask  # use the last successful mask 
+            else: 
+                cv2.cvtColor(img, cv2.COLOR_BGR2RGB, img) 
+                return img, None 
+        else: 
+            face = faces[0] 
+            shape = new_base_tech_avatars_init.predictor(img, face) 
+        
+            # Get points for mouth 
+            mouth_points = np.array([[shape.part(i).x, shape.part(i).y] for i in range(48, 68)]) 
+
+            # Calculate bounding box dimensions
+            self.x, self.y, self.w, self.h = cv2.boundingRect(mouth_points)
+
+            # Set kernel size as a fraction of bounding box size
+            kernel_size = int(max(self.w, self.h) * 2.5)
+            #if kernel_size % 2 == 0:  # Ensure kernel size is odd
+                #kernel_size += 1
+
+            # Create kernel
+            self.kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+            # Create binary mask for mouth 
+            mask = np.zeros(img.shape[:2], dtype=np.uint8) 
+            cv2.fillConvexPoly(mask, mouth_points, 255)
+
+            self.last_mask = mask  # Update last_mask with the new mask
+        
+        # Dilate the mask
+        dilated_mask = cv2.dilate(mask, self.kernel)
+
+        # Calculate distance transform of dilated mask
+        dist_transform = cv2.distanceTransform(dilated_mask, cv2.DIST_L2, 5)
+
+        # Normalize distance transform
+        cv2.normalize(dist_transform, dist_transform, 0, 255, cv2.NORM_MINMAX)
+
+        # Convert normalized distance transform to binary mask and convert it to uint8
+        _, masked_diff = cv2.threshold(dist_transform, 50, 255, cv2.THRESH_BINARY)
+        masked_diff = masked_diff.astype(np.uint8)
+        
+        #make sure blur is an odd number
+        blur = 5
+        if blur % 2 == 0:
+            blur += 1
+        # Set blur size as a fraction of bounding box size
+        blur = int(max(self.w, self.h) * blur)  # 10% of bounding box size
+        if blur % 2 == 0:  # Ensure blur size is odd
+            blur += 1
+        masked_diff = cv2.GaussianBlur(masked_diff, (blur, blur), 0)
+
+        # Convert numpy arrays to PIL Images
+        input1 = Image.fromarray(img)
+        input2 = Image.fromarray(original_img)
+
+        # Convert mask to single channel where pixel values are from the alpha channel of the current mask
+        mask = Image.fromarray(masked_diff)
+
+        # Ensure images are the same size
+        assert input1.size == input2.size == mask.size
+
+        # Paste input1 onto input2 using the mask
+        input2.paste(input1, (0,0), mask)
+
+        # Convert the final PIL Image back to a numpy array
+        input2 = np.array(input2)
+
+        #input2 = cv2.cvtColor(input2, cv2.COLOR_BGR2RGB)
+        cv2.cvtColor(input2, cv2.COLOR_BGR2RGB, input2)
+        
+        return input2, mask
 
     def generate_digital_human(self, audio_file,fps = 25):
+        self.kernel = self.last_mask = self.x = self.y = self.w = self.h = None
+        
         # 从音频文件中获取帧数
         audio_frames = AudioUtils.get_audio_frames(audio_file,fps)
         
@@ -240,6 +330,9 @@ class DigitalHumanSynthesizer:
             desc="Processing Wav2Lip",ncols=100
         )):
             if i == 0:
+                # 高清修复
+                if self.quality == 'Enhanced':
+                    run_params = load_sr()
                 frame_h, frame_w = self.video_preprocessor.frame_first.shape[:-1]
                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
                 out = cv2.VideoWriter('temp/result.mp4', fourcc, fps, (frame_w, frame_h))
@@ -254,12 +347,18 @@ class DigitalHumanSynthesizer:
 
             for p, f, c in zip(pred, frames, coords):
                 y1, y2, x1, x2 = c
+
                 p = cv2.resize(p.astype(np.uint8), (x2 - x1, y2 - y1))
+                
+                # 高清修复
+                if self.quality == 'Enhanced':
+                    cf = f[y1:y2, x1:x2]
+                    p = upscale(p, run_params)
+                    for i in range(len(frames)):
+                        p, last_mask = self.create_tracked_mask(p, cf)
+                
                 f[y1:y2, x1:x2] = p
                 out.write(f)
-                # 显示每一帧图像
-                # cv2.imshow('Processed Frame', f)
-                # cv2.waitKey(1)  # 等待1毫秒以确保图像显示在窗口中
                 
         out.release()
         
@@ -330,43 +429,9 @@ class AudioUtils:
                 i += 1
             return mel_chunks
 
-
-# 专门用于订阅soket
-class VideoDataSubscriber:
-    def __init__(self, host='127.0.0.1', port=65432):
-        self.host = host
-        self.port = port
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.connect((self.host, self.port))
-
-    def send_video_data(self, file_path, oldest_video):
-        self.socket.sendall(f"{file_path},{oldest_video}".encode())
-        print("Data sent to server")
-
-    def close_connection(self):
-        self.socket.close()
-
-class StreamMediaClient:
-    def __init__(self, server_url):
-        self.server_url = server_url
-
-    def upload_file(self, file_path):
-        url = self.server_url + '/enqueue_video'
-        response = requests.post(url, data={'video_path': file_path})
-        return response.text
-    
-    def send_upload_file(self, file_path,oldest_video):
-        url = self.server_url + '/enqueue_video'
-        response = requests.post(url, data={'file_path': file_path,'oldest_video': oldest_video})
-        return response.text
-
-    def stream_media(self):
-        url = self.server_url + '/stream'
-        return requests.get(url, stream=True).content
-
-
 wav_path_files = []
-app = Flask(__name__)    
+app = Flask(__name__) 
+# 与音频程序进行通信   
 @app.route('/enqueue_video', methods=['POST'])
 def enqueue_video():
     file_path = request.form.get('file_path')
@@ -394,10 +459,13 @@ def write_json_file(file_path, new_file_path, new_oldest_video):
 
 # 主程序        
 class VideoReader:
-    def __init__(self, directory):
+    def __init__(self, directory,preprocessor,quality = 'Fast'):
+        # 音频文件前缀
         self.directory = directory
-        video_preprocessor = VideoPreprocessor('20240418_235942')
-        self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor)
+        # 初始化模型
+        video_preprocessor = VideoPreprocessor(preprocessor)
+        # 初始化数字人合成
+        self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor,quality)
     
     def list_video_files(self):
         if len(wav_path_files) > 0:
@@ -419,17 +487,13 @@ class VideoReader:
                 file_path,
                 video_file
             )
-                
-            # 读取完成后可以删除文件
-            # os.remove(os.path.join(self.directory, oldest_video))
-            # os.remove(file_path)
 
 def read_next_video():
     while True:
         video_reader.read_next_video()
 # 测试
 if __name__ == "__main__":
-    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2")
+    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2",'20240418_235942')
     server_thread = threading.Thread(target=read_next_video)
     server_thread.daemon = True
     server_thread.start()
