@@ -2,6 +2,7 @@ import json
 import threading
 import time
 import cv2
+import numpy as np
 import pygame
 import os
 from flask import Flask, request, jsonify
@@ -62,8 +63,20 @@ class VideoPlayer:
                     return
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 frame = cv2.flip(frame, 0)
+                
+                # 逆时针旋转90°
+                frame = np.rot90(frame, k=-1)
+                # 缩小为原来的三分之一大小
+                frame = cv2.resize(frame, (int(frame.shape[1] * 0.8), int(frame.shape[0] * 0.8)))
+                
+                # 计算垂直居中的位置
+                screen_width, screen_height = screen.get_size()
+                frame_width, frame_height, _ = frame.shape
+                x_offset = (screen_width - frame_width) // 2
+                y_offset = (screen_height - frame_height) // 2
+                
                 frame = pygame.surfarray.make_surface(frame)
-                screen.blit(frame, (0, 0))
+                screen.blit(frame, (x_offset, y_offset))
                 pygame.display.flip()
                 clock.tick(20)
             pygame.mixer.music.stop()
@@ -135,7 +148,7 @@ def read_and_remove_first_object(json_file='video_data.json'):
 # Test the video player
 if __name__ == "__main__":
     pygame.init()
-    screen = pygame.display.set_mode((1980, 800))
+    screen = pygame.display.set_mode((720 * 0.8, 1280 * 0.8))
     player = VideoPlayer()
     audio_player = AudioPlayer(player)
 
