@@ -161,6 +161,75 @@ class VideoPreprocessor:
         self.direction = 1  # 定义方向变量，初始值为1，表示正向
         self.load_frames()
         self.load_faces()
+        # 缓存池最大容量
+        self.max_cache_size= 300
+        # self.frames // 10
+        if(self.frames < 1000) :
+            self.max_cache_size = self.frames
+        else :
+             self.max_cache_size = self.frames // 10
+        self.cache_pool = {
+            # 人脸数据
+            'faces_to_use' : [],
+            # 视频帧
+            'frames_to_use' : []
+        }
+        self.refill_thread = threading.Thread(target=self.random_refill_cache)
+        self.refill_thread.start()
+        
+        self.current_index_list = []
+    
+    # 正序，反向
+    def refill_cache(self):
+        while True:
+            time.sleep(0.01)
+            while len(self.cache_pool['faces_to_use']) < self.max_cache_size:
+                for _ in range(self.max_cache_size - len(self.cache_pool['faces_to_use'])):
+                    # 判断索引是否超出范围
+                    if self.current_index >= self.frames:
+                        self.current_index = self.frames - 1
+                        self.direction = -1  # 当索引超出范围时，改变方向为逆向
+                    elif self.current_index < 0:
+                        self.current_index = 0
+                        self.direction = 1  # 当索引超出范围时，改变方向为正向
+                        
+                    # 读取人脸数据
+                    loaded_face_results_array = np.load(f'./cache/{self.dirName}/face_{self.current_index}.npy', allow_pickle=True)
+                    # 读取视频帧数据
+                    loaded_frame_results_array = np.load(f'./cache/{self.dirName}/frame_{self.current_index}.npy')
+                    self.cache_pool['faces_to_use'].append(loaded_face_results_array)
+                    self.cache_pool['frames_to_use'].append(loaded_frame_results_array)
+                    
+                    # 根据当前方向更新索引
+                    self.current_index += self.direction
+    # 随机读取
+    def random_refill_cache(self):
+        while True:
+            time.sleep(0.01)
+            while len(self.cache_pool['faces_to_use']) < self.max_cache_size:
+                num_frames = self.max_cache_size - len(self.cache_pool['faces_to_use'])
+                self.direction *= -1
+                reverse_frames = random.randint(num_frames // 5, num_frames)  # 随机倒放的帧数
+                
+                for _ in range(num_frames):
+                    self.current_index_list.append(self.current_index)
+                    # 读取人脸数据
+                    loaded_face_results_array = np.load(f'./cache/{self.dirName}/face_{self.current_index}.npy', allow_pickle=True)
+                    # 读取视频帧数据
+                    loaded_frame_results_array = np.load(f'./cache/{self.dirName}/frame_{self.current_index}.npy')
+                    self.cache_pool['faces_to_use'].append(loaded_face_results_array)
+                    self.cache_pool['frames_to_use'].append(loaded_frame_results_array)
+                    
+                    if( _ == reverse_frames):
+                        self.direction *= -1
+                        
+                    if self.current_index >= self.frames - 1 and self.direction == 1:
+                        self.direction = -1
+                    elif self.current_index <= 0 and self.direction == -1:
+                        self.direction = 1
+                    # 根据当前方向更新索引
+                    self.current_index += self.direction
+            
 
     def load_frames(self):
         # 列出指定文件夹中以'frame_'为前缀的.npy文件数量
@@ -178,22 +247,8 @@ class VideoPreprocessor:
         faces_to_use = []
         frames_to_use = []
         for _ in range(num_frames):
-            # 判断索引是否超出范围
-            if self.current_index >= self.frames:
-                self.current_index = self.frames - 1
-                self.direction = -1  # 当索引超出范围时，改变方向为逆向
-            elif self.current_index < 0:
-                self.current_index = 0
-                self.direction = 1  # 当索引超出范围时，改变方向为正向
-            # print(f'当前索引 ： {self.current_index}；当前视频帧数 ：{self.frames}；当前人脸帧数：{self.faces}')
-            # 读取人脸数据
-            loaded_face_results_array = np.load(f'./cache/{self.dirName}/face_{self.current_index}.npy', allow_pickle=True)
-            # 读取视频帧数据
-            loaded_frame_results_array = np.load(f'./cache/{self.dirName}/frame_{self.current_index}.npy')
-            faces_to_use.append(loaded_face_results_array)
-            frames_to_use.append(loaded_frame_results_array)
-            # 根据当前方向更新索引
-            self.current_index += self.direction
+            faces_to_use.append(self.cache_pool['faces_to_use'].pop(0))
+            frames_to_use.append(self.cache_pool['frames_to_use'].pop(0))
         return faces_to_use, frames_to_use
     
     # 随机顺序
@@ -498,7 +553,7 @@ def read_next_video():
         video_reader.read_next_video()
 # 测试
 if __name__ == "__main__":
-    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2",'20240430_124042')
+    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2",'20240430_165932')
     server_thread = threading.Thread(target=read_next_video)
     server_thread.daemon = True
     server_thread.start()
