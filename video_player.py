@@ -135,7 +135,7 @@ def read_and_remove_first_object(json_file='video_data.json'):
 # Test the video player
 if __name__ == "__main__":
     pygame.init()
-    screen = pygame.display.set_mode((800, 800))
+    screen = pygame.display.set_mode((1980, 800))
     player = VideoPlayer()
     audio_player = AudioPlayer(player)
 

@@ -147,7 +147,7 @@ class VideoPreprocessing:
             return boxes
  
  
-# newVideoPreprocessing = VideoPreprocessing('G:\\BaiduNetdiskDownload\\Easy-Wav2Lip-main-0229\\temp\\demo3.mp4')
+# newVideoPreprocessing = VideoPreprocessing('./temp/2.mp4')
 # fps = newVideoPreprocessing.extract_faces()
 
 # 数字人处理进度维护
@@ -200,6 +200,10 @@ class VideoPreprocessor:
     def _get_next_frames_and_faces(self, num_frames):
         faces_to_use = []
         frames_to_use = []
+        
+        self.direction *= -1
+        reverse_frames = random.randint(num_frames / 5, num_frames)  # 随机倒放的帧数
+        
         for _ in range(num_frames):
             # 读取人脸数据
             loaded_face_results_array = np.load(f'./cache/{self.dirName}/face_{self.current_index}.npy', allow_pickle=True)
@@ -208,16 +212,15 @@ class VideoPreprocessor:
             faces_to_use.append(loaded_face_results_array)
             frames_to_use.append(loaded_frame_results_array)
             
-            
+            if( _ == reverse_frames):
+                self.direction *= -1
+                
             if self.current_index >= self.frames - 1 and self.direction == 1:
                 self.direction = -1
             elif self.current_index <= 0 and self.direction == -1:
                 self.direction = 1
             self.current_index += self.direction
             
-            # 随机改变方向
-            if random.random() < 0.05:  # 0.5%的概率改变方向
-                self.direction *= -1
         return faces_to_use, frames_to_use
 
 
@@ -318,8 +321,10 @@ class DigitalHumanSynthesizer:
         # 从音频文件中获取帧数
         audio_frames = AudioUtils.get_audio_frames(audio_file,fps)
         
+        start_time = time.time()
         # 获取需要的人脸帧数据
         faces_to_use,frames_to_use = self.video_preprocessor.get_next_frames_and_faces(len(audio_frames))
+        print(f"get_next_frames_and_faces 代码块执行时间为: {time.time() - start_time} 秒")
         
         gen = self.datagen(frames_to_use, faces_to_use,audio_frames)
         
@@ -368,8 +373,8 @@ class DigitalHumanSynthesizer:
             subprocess.check_call([
             "ffmpeg.exe", "-y", "-loglevel", "error",
             "-i", 'temp/result.mp4',
-            "-i", audio_file,
             "-c:v", "h264_nvenc",
+            "-an",
             f'out/result_{timestamp}.mp4' ,
         ])
         except subprocess.CalledProcessError as e:
@@ -465,7 +470,7 @@ class VideoReader:
         # 初始化模型
         video_preprocessor = VideoPreprocessor(preprocessor)
         # 初始化数字人合成
-        self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor,quality)
+        self.digital_human_synthesizer = DigitalHumanSynthesizer(video_preprocessor,1,quality)
     
     def list_video_files(self):
         if len(wav_path_files) > 0:
@@ -493,8 +498,11 @@ def read_next_video():
         video_reader.read_next_video()
 # 测试
 if __name__ == "__main__":
-    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2",'20240418_235942')
+    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2",'20240430_124042')
     server_thread = threading.Thread(target=read_next_video)
     server_thread.daemon = True
     server_thread.start()
     app.run(threaded=True)
+    
+    # newVideoPreprocessing = VideoPreprocessing('./temp/2-720p.mp4')
+    # fps = newVideoPreprocessing.extract_faces()
