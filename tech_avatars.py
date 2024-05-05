@@ -162,9 +162,9 @@ class VideoPreprocessor:
         self.load_frames()
         self.load_faces()
         # 缓存池最大容量
-        self.max_cache_size= 300
+        self.max_cache_size= 6000
         # self.frames // 10
-        if(self.frames < 1000) :
+        if(self.frames < 2000) :
             self.max_cache_size = self.frames
         else :
              self.max_cache_size = self.frames // 10
@@ -373,8 +373,10 @@ class DigitalHumanSynthesizer:
     def generate_digital_human(self, audio_file,fps = 25):
         self.kernel = self.last_mask = self.x = self.y = self.w = self.h = None
         
+        start_time = time.time()
         # 从音频文件中获取帧数
         audio_frames = AudioUtils.get_audio_frames(audio_file,fps)
+        print(f"get_audio_frames 代码块执行时间为: {time.time() - start_time} 秒")
         
         start_time = time.time()
         # 获取需要的人脸帧数据
@@ -553,7 +555,7 @@ def read_next_video():
         video_reader.read_next_video()
 # 测试
 if __name__ == "__main__":
-    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2",'20240430_165932')
+    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2",'20240430_124042')
     server_thread = threading.Thread(target=read_next_video)
     server_thread.daemon = True
     server_thread.start()
