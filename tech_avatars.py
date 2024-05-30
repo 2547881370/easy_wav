@@ -384,7 +384,9 @@ class DigitalHumanSynthesizer:
         print(f"get_next_frames_and_faces 代码块执行时间为: {time.time() - start_time} 秒")
         
         gen = self.datagen(frames_to_use, faces_to_use,audio_frames)
-        
+        # 高清修复
+        if self.quality == 'Enhanced':
+            run_params = load_sr()
         # 合成数字人
         for i, (img_batch, mel_batch, frames, coords, audio_chunk) in enumerate(tqdm(
             gen,
@@ -392,9 +394,7 @@ class DigitalHumanSynthesizer:
             desc="Processing Wav2Lip",ncols=100
         )):
             if i == 0:
-                # 高清修复
-                if self.quality == 'Enhanced':
-                    run_params = load_sr()
+
                 frame_h, frame_w = self.video_preprocessor.frame_first.shape[:-1]
                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Be sure to use lower case
                 out = cv2.VideoWriter('temp/result.mp4', fourcc, fps, (frame_w, frame_h))
@@ -555,11 +555,11 @@ def read_next_video():
         video_reader.read_next_video()
 # 测试
 if __name__ == "__main__":
-    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2",'20240430_124042')
+    video_reader = VideoReader(r"G:\project\utils\UnmannedSystem\text_splice_to_audioV2",'20240515_225257')
     server_thread = threading.Thread(target=read_next_video)
     server_thread.daemon = True
     server_thread.start()
     app.run(threaded=True)
     
-    # newVideoPreprocessing = VideoPreprocessing('./temp/2-720p.mp4')
+    # newVideoPreprocessing = VideoPreprocessing('./temp/3-3-3-720p.mp4')
     # fps = newVideoPreprocessing.extract_faces()
