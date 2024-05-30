@@ -495,7 +495,7 @@ class DigitalHumanSynthesizer:
                 j = random.randint(start, end - 1)
                 frames_copy[i], frames_copy[j] = frames_copy[j], frames_copy[i]
                 faces_copy[i], faces_copy[j] = faces_copy[j], faces_copy[i]
-        return frames_copy,faces_copy
+        return faces_copy,frames_copy
    
 # 音频工具类
 class AudioUtils:
