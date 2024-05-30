@@ -9,26 +9,14 @@ from flask import Flask, request, jsonify
 
 class VideoPlayer:
     def __init__(self):
+        # 音频路径作为键，视频帧作为值
         self.video_frames = {}
+        # 音频路径列表
         self.audio_paths = []
+        # 是否正在播放
         self.playing = False
+        # 音频路径作为键，视频路径作为值
         self.path = {}
-        self.files_to_delete = []
-        self.audio_queue = []
-        self.audio_subscribers = []
-
-    def add_video(self, video_path, audio_path):
-        cap = cv2.VideoCapture(video_path)
-        frames = []
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frames.append(frame)
-        cap.release()
-        self.video_frames[audio_path] = frames
-        self.audio_paths.append(audio_path)
-        self.path[audio_path] = video_path
 
     def preload_video(self, video_path, audio_path):
         cap = cv2.VideoCapture(video_path)
@@ -104,30 +92,6 @@ class VideoPlayer:
                 break
             time.sleep(1)
 
-    def play_audio(self):
-        while True:
-            if self.audio_queue:
-                audio_path = self.audio_queue.pop(0)
-                pygame.mixer.music.load(audio_path)
-                pygame.mixer.music.play()
-                while pygame.mixer.music.get_busy():
-                    time.sleep(1)
-            else:
-                time.sleep(1)
-
-    def subscribe_audio(self, subscriber):
-        self.audio_subscribers.append(subscriber)
-
-    def publish_audio(self, audio_path):
-        for subscriber in self.audio_subscribers:
-            subscriber.receive_audio(audio_path)
-
-class AudioPlayer:
-    def __init__(self, video_player):
-        self.video_player = video_player
-
-    def receive_audio(self, audio_path):
-        self.video_player.audio_queue.append(audio_path)
 
 def read_and_remove_first_object(json_file='video_data.json'):
     try:
@@ -150,7 +114,6 @@ if __name__ == "__main__":
     pygame.init()
     screen = pygame.display.set_mode((720 * 0.8, 1280 * 0.8))
     player = VideoPlayer()
-    audio_player = AudioPlayer(player)
 
     audio_thread = threading.Thread(target=player.play_audio)
     audio_thread.start()
@@ -159,7 +122,6 @@ if __name__ == "__main__":
         read_result = read_and_remove_first_object()
         if read_result:
             player.preload_video(read_result.get('file_path'), read_result.get('oldest_video'))
-            player.publish_audio(read_result.get('oldest_video'))
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
