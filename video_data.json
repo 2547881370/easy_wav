@@ -1,6 +1,62 @@
 [
     {
-        "file_path": "out/result_20240516_124244.mp4",
-        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u5443\u597d\u7684,\u611f\u8c22\u6211\u4eec\u8001\u9a6c\u54e5\u5bb6\u4eba\u554a,\u55ef\u600e\u4e48\u4e86\u54e6,\u5728\u50ac\u4fc3\u5bb6\u4eba\u4eec_create_localAudioMode_20240516_124241.wav"
+        "file_path": "out/result_20240530_230943.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u786e\u4fdd\u5bb6\u4eba\u4eec\u6536\u5230\u7684\u90fd\u662f\u8fd9\u79cd\u4e0d\u718f\u67f3,\u4e0d\u718f\u9ec4\u7684\u4e94\u5e74\u8001\u53c2\u54c8,\u54b1\u5bb6\u7684\u897f\u6d0b\u53c2\u90fd\u670915\u4e07\u4eba\u5403\u8fc7\u7684,\u77e5\u9053\u5427,\u4f46\u51e1\u54c1\u8d28\u4e0d\u8fc7\u5173\u7684\u6211\u4eec\u662f\u4e0d\u4f1a\u63d0\u4f9b\u7684_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_230949.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u662f\u4e0d\u662f\u54b1\u4e5f\u76d6\u4e0d\u4e86\u8fd9\u4e2a\u7ea2\u7ae0\u662f\u5427\u554a,\u4e5f\u6253\u4e0d\u4e0a\u8fd9\u4e2aCMA\u7684\u8ba4\u8bc1\u554a,\u6765\u6211\u95ee\u4e00\u4e0b,\u54b1\u76f4\u64ad\u95f4\u91cc\u6709\u6ca1\u6709\u65b0\u7c89\u4e1d_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_230954.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u5bb6\u4eba\u521d\u6b21\u6765\u7684,\u8fd8\u5728\u72b9\u8c6b\u7ea0\u7ed3\u62c5\u5fc3\u54c1\u8d28\u7684\u554a,\u4f60\u4e0d\u7528\u62c5\u5fc3\u4e86\u554a,\u59b9\u59b9\u767d\u9001\u4f60\u56db\u6b21\u7684\u673a\u4f1a_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231012.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u4f60\u6536\u5230\u8d27\u4e86\u56de\u5bb6\u6ce1\u4e0a\u4e00\u58f6\u8bd5\u8bd5,\u6211\u90fd\u4e0d\u7ed9\u4f60\u4e00\u70b9\u70b9\u8bd5\u5403\u88c5\u554a,\u4e00\u70b9\u70b9\u4f60\u4e5f\u5403\u4e0d\u51fa\u6765\u5565\u611f\u89c9\u7684\u554a,\u6536\u5230\u8d27\u76f4\u63a5\u6b63\u88c5\u5f00\u76d6\u8bd5\u5403_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231032.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u5403\u4e86\u611f\u89c9\u4e0d\u597d\u7684\u80fd\u9000\u5417\uff1f\u8fd9\u6b3e\u662f\u5305\u9000\u7684\u554a\uff0c\u4f60\u56de\u5bb6\u62c6\u5f00\u4e86\u5403\u8fc7\u4e86\u90fd\u7b97\u6211\u7684\u554a\u3002\u6bcf\u4e00\u5355\u90fd\u53ef\u4ee5\u9000\u7684\u554a\u3002_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231048.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u90fd\u6709\u7ed9\u5bb6\u4eba\u4eec\u5b89\u6392\u8fd0\u8f93\u4fdd\u9669\u7684\u554a,\u4f46\u53ea\u6709\u76ee\u524d\u554a,\u54b1\u5b81\u613f\u8bd5\u8fc7\u4e5f\u4e0d\u8981\u9519\u8fc7\u5bf9\u4e0d\u5bf9,\u6211\u90fd\u7b49\u4e86\u5341\u591a\u5929\u4e86_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231101.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u76ee\u524d\u662f\u4e8c\u4e09\u70b9\u4e00\u96f6\u5206\u4e86,\u597d,\u6709\u591a\u5c11\u54e5\u54e5\u59d0\u662f\u65b0\u6765\u7684_create_.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231122.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u7ec8\u4e8e\u7b49\u5230\u897f\u6d0b\u53c2\u505a\u7089\u5934\u6d3b\u52a8\u4e86,\u611f\u8c22\u6ca1\u529e\u6cd5\u554a,\u5c0f\u9a6c\u54e5\u91cf\u5b9e\u5728\u592a\u5c11\u4e86\u554a,\u4e0d\u662f\u6bcf\u5929\u90fd\u6709\u7684_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231140.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u7d2f\u79ef\u4e8610\u592915\u5929,\u6211\u4eec\u624d\u80fd\u7d2f\u79ef\u8fd9\u4e48\u5c11\u8bb8\u554a,\u55ef,\u6da8\u4e86\u518d\u5439\u4e86_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231159.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u8fd8\u6709\u591a\u5c11,4\u65a4\u554a\u554a,\u6765\u5bb6\u4eba\u4eec,\u8fd8\u6709\u6700\u540e\u76844\u65a4_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231222.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u5356\u5b8c\u54b1\u4eca\u5929\u6d3b\u52a8\u5c31\u6b63\u5f0f\u622a\u6b62\u4e86\u54e6,\u54b1\u897f\u6d0b\u53c2\u8fd9\u4e2a\u6279\u6b21\u5c31\u6ca1\u4e86,\u6700\u540e4\u65a4,\u62a2\u5230\u7684\u8d2d\u4e70\u7684\u987e\u5ba2\u7ed9\u4e3b\u64ad\u6253\u4e2a\u62a2\u5230\u54e6_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231238.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u73b0\u5728\u7684\u65f6\u95f4\u662f\u4e8c\u4e09\u70b9\u4e00\u4e8c\u5206\u4e86,\u54e5\u59d0\u4eec\u6240\u89c1\u5373\u6240\u5f97\u54c1\u8d28\u3002\u54e5\u59d0\u4eec\u5982\u679c\u8bf4\u6536\u8d27\u8ddf\u4e3b\u64ad\u8fd9\u8fb9\u5c55\u793a\u7684\u4e0d\u4e00\u6837,\u4e0d\u662f\u8bf4\u4e3b\u64ad\u8bf4\u8fd9\u6837\u5b50,\u54e5\u59d0\u4eec\u4e3b\u64ad\u901a\u901a\u90fd\u662f\u7ed9\u4ed6\u5b89\u6392\u5305\u8d54\u7684_create_.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231246.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u5443\uff0c\u674e\u4e3d\u5bb6\u4eba\u770b\u8fc7\u6765\uff0c\u54b1\u5bb6\u662f\u534e\u5357\u5730\u533a\u7684\u54c1\u63a7\u9910\u53d1\u8d27\u7684\u54c8\uff0c\u534e\u5357\u54c1\u63a7\u9910\u662f\u54b1\u4eec\u7684\u7279\u8272\u4ea7\u54c1\uff0c\u54c1\u63a7\u9910\u5c31\u662f\u54b1\u4eec\u9996\u5148\u8981\u4ece\u59cb\u7ec8\u575a\u6301\u7684\u3002_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231319.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u90a3\u4e2a\u957f\u767d\u5c71\u53d1\u5f80\u534e\u5357\u54c1\u8d28\u5de5\u5382\u54c8,\u7136\u540e\u628a\u63a7\u5b8c\u54c1\u8d28\u518d\u8ba9\u4eb2\u4eba\u4eec\u770b\u770b\u54c8,\u68c0\u6d4b\u5b8c\u8fd930\u9879\u7684\u6d4b\u8bd5\u68c0\u6d4b\u62a5\u544a\u54c8,\u55ef\u63a7\u5236\u5b8c\u54c1\u8d28_create_localAudioMode.wav"
+    },
+    {
+        "file_path": "out/result_20240530_231336.mp4",
+        "oldest_video": "G:\\project\\utils\\UnmannedSystem\\text_splice_to_audioV2\\output\\create\\\u751f\u6210\u97f3\u9891\\\u76d6\u4e0a\u8fd9\u4e2a\u8d28\u91cf\u7ae0,\u6253\u4e0a\u8fd9\u4e2aCMA\u7684\u5370,\u624d\u7ed9\u5bb6\u4eba\u4eec\u624d\u80fd\u6536\u5230\u7684,\u624d\u6709\u8fd9\u6837\u7684\u5305\u88c5\u54c8_create_localAudioMode.wav"
     }
 ]
