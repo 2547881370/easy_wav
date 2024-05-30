@@ -420,7 +420,8 @@ class DigitalHumanSynthesizer:
         start_time = time.time()
         # 获取需要的人脸帧数据
         faces_to_use,frames_to_use = self.video_preprocessor.get_next_frames_and_faces(len(audio_frames))
-        faces_to_use,frames_to_use = local_shuffle(faces_to_use,frames_to_use, window_size=15, swap_count=1)
+        # 随机抽帧替换位置
+        # faces_to_use,frames_to_use = local_shuffle(faces_to_use,frames_to_use, window_size=15, swap_count=1)
         print(f"get_next_frames_and_faces 代码块执行时间为: {time.time() - start_time} 秒")
         
         gen = self.datagen(frames_to_use, faces_to_use,audio_frames)
