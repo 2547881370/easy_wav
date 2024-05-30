@@ -56,6 +56,32 @@ class base_tech_avatars_init:
 
 new_base_tech_avatars_init = base_tech_avatars_init()
 
+
+# 抽帧随机换位置
+def local_shuffle(faces_to_use,frames_to_use, window_size, swap_count):
+    """
+        在一个局部窗口内随机打乱数组的元素位置。
+        
+        参数:
+        faces_to_use (list): 人脸数据数组
+        frames_to_use (list): 人脸数据对应的视频帧数组
+        window_size (int): 局部窗口的大小
+        swap_count (int): 每个窗口内随机替换位置的数量
+        
+        返回:
+        list: 打乱后的数组
+    """
+    frames_copy = frames_to_use.copy()
+    faces_copy = faces_to_use.copy()
+    for start in range(0, len(frames_to_use), window_size):
+        end = min(start + window_size, len(frames_to_use))
+        for _ in range(swap_count):
+            i = random.randint(start, end - 1)
+            j = random.randint(start, end - 1)
+            frames_copy[i], frames_copy[j] = frames_copy[j], frames_copy[i]
+            faces_copy[i], faces_copy[j] = faces_copy[j], faces_copy[i]
+    return faces_copy,frames_copy
+
 # 视频预处理
 class VideoPreprocessing:
     def __init__(self, video_path):
@@ -174,6 +200,9 @@ class VideoPreprocessor:
             # 视频帧
             'frames_to_use' : []
         }
+        # 以max_cache_size作为最大值,当max_cache_size为0时,开始将视频帧和人脸帧抽帧随机换位置
+        self.local_shuffle_num = self.max_cache_size
+        
         self.refill_thread = threading.Thread(target=self.random_refill_cache)
         self.refill_thread.start()
         
@@ -205,6 +234,14 @@ class VideoPreprocessor:
     # 随机读取 缓存到缓存池
     def random_refill_cache(self):
         while True:
+            
+            # 当缓存池中的数据小于等于0时，开始随机抽帧替换位置
+            if(self.local_shuffle_num <= 0):
+                self.local_shuffle_num = self.max_cache_size
+                faces_to_use , frames_to_use = local_shuffle(self.cache_pool['faces_to_use'],self.cache_pool['frames_to_use'], window_size=300, swap_count=10)
+                self.cache_pool['faces_to_use'] = faces_to_use
+                self.cache_pool['frames_to_use'] = frames_to_use
+            
             time.sleep(0.01)
             while len(self.cache_pool['faces_to_use']) < self.max_cache_size:
                 num_frames = self.max_cache_size - len(self.cache_pool['faces_to_use'])
@@ -229,6 +266,8 @@ class VideoPreprocessor:
                         self.direction = 1
                     # 根据当前方向更新索引
                     self.current_index += self.direction
+                    
+                    self.local_shuffle_num -= 1
             
 
     def load_frames(self):
@@ -381,7 +420,7 @@ class DigitalHumanSynthesizer:
         start_time = time.time()
         # 获取需要的人脸帧数据
         faces_to_use,frames_to_use = self.video_preprocessor.get_next_frames_and_faces(len(audio_frames))
-        faces_to_use,frames_to_use = self.local_shuffle(faces_to_use,frames_to_use, window_size=15, swap_count=1)
+        faces_to_use,frames_to_use = local_shuffle(faces_to_use,frames_to_use, window_size=15, swap_count=1)
         print(f"get_next_frames_and_faces 代码块执行时间为: {time.time() - start_time} 秒")
         
         gen = self.datagen(frames_to_use, faces_to_use,audio_frames)
@@ -472,30 +511,6 @@ class DigitalHumanSynthesizer:
                 yield img_batch, mel_batch, frame_batch, coords_batch, audio_chunk
                 img_batch, mel_batch, frame_batch, coords_batch = [], [], [], []
     
-    # 抽帧随机换位置
-    def local_shuffle(self,faces_to_use,frames_to_use, window_size, swap_count):
-        """
-            在一个局部窗口内随机打乱数组的元素位置。
-            
-            参数:
-            faces_to_use (list): 人脸数据数组
-            frames_to_use (list): 人脸数据对应的视频帧数组
-            window_size (int): 局部窗口的大小
-            swap_count (int): 每个窗口内随机替换位置的数量
-            
-            返回:
-            list: 打乱后的数组
-        """
-        frames_copy = frames_to_use.copy()
-        faces_copy = faces_to_use.copy()
-        for start in range(0, len(frames_to_use), window_size):
-            end = min(start + window_size, len(frames_to_use))
-            for _ in range(swap_count):
-                i = random.randint(start, end - 1)
-                j = random.randint(start, end - 1)
-                frames_copy[i], frames_copy[j] = frames_copy[j], frames_copy[i]
-                faces_copy[i], faces_copy[j] = faces_copy[j], faces_copy[i]
-        return faces_copy,frames_copy
    
 # 音频工具类
 class AudioUtils:
