@@ -56,31 +56,64 @@ class base_tech_avatars_init:
 
 new_base_tech_avatars_init = base_tech_avatars_init()
 
+# 视频工具类
+class BaseVideoUtils:
+    
+    # 抽帧随机换位置
+    @staticmethod
+    def local_shuffle(faces_to_use,frames_to_use, window_size, swap_count):
+        """
+            在一个局部窗口内随机打乱数组的元素位置。
+            
+            参数:
+            faces_to_use (list): 人脸数据数组
+            frames_to_use (list): 人脸数据对应的视频帧数组
+            window_size (int): 局部窗口的大小
+            swap_count (int): 每个窗口内随机替换位置的数量
+            
+            返回:
+            list: 打乱后的数组
+        """
+        frames_copy = frames_to_use.copy()
+        faces_copy = faces_to_use.copy()
+        for start in range(0, len(frames_to_use), window_size):
+            end = min(start + window_size, len(frames_to_use))
+            for _ in range(swap_count):
+                i = random.randint(start, end - 1)
+                j = random.randint(start, end - 1)
+                frames_copy[i], frames_copy[j] = frames_copy[j], frames_copy[i]
+                faces_copy[i], faces_copy[j] = faces_copy[j], faces_copy[i]
+        return faces_copy,frames_copy
+    
+    # 视频剪辑：你可以尝试将视频剪辑成多个片段，然后以不同的顺序重新组合这些片段。
+    @staticmethod
+    def shuffle_video_frames(frames, max_clip_length):
+        """
+        将视频帧切片，打乱片段顺序，并返回新的视频帧列表。
 
-# 抽帧随机换位置
-def local_shuffle(faces_to_use,frames_to_use, window_size, swap_count):
-    """
-        在一个局部窗口内随机打乱数组的元素位置。
-        
         参数:
-        faces_to_use (list): 人脸数据数组
-        frames_to_use (list): 人脸数据对应的视频帧数组
-        window_size (int): 局部窗口的大小
-        swap_count (int): 每个窗口内随机替换位置的数量
-        
+        frames (list): 视频帧的列表，每个元素是一个numpy数组
+        max_clip_length (int): 每个片段的最大长度（帧数）
+
         返回:
-        list: 打乱后的数组
-    """
-    frames_copy = frames_to_use.copy()
-    faces_copy = faces_to_use.copy()
-    for start in range(0, len(frames_to_use), window_size):
-        end = min(start + window_size, len(frames_to_use))
-        for _ in range(swap_count):
-            i = random.randint(start, end - 1)
-            j = random.randint(start, end - 1)
-            frames_copy[i], frames_copy[j] = frames_copy[j], frames_copy[i]
-            faces_copy[i], faces_copy[j] = faces_copy[j], faces_copy[i]
-    return faces_copy,frames_copy
+        list: 重新组合的视频帧列表
+        """
+        # 将视频帧切片
+        clips = []
+        start = 0
+        while start < len(frames):
+            clip_length = random.randint(1, max_clip_length)  # 生成随机的片段长度
+            end = min(start + clip_length, len(frames))
+            clips.append(frames[start:end])
+            start = end
+
+        # 打乱片段顺序
+        random.shuffle(clips)
+
+        # 重新组合片段
+        shuffled_frames = [frame for clip in clips for frame in clip]
+
+        return shuffled_frames
 
 # 视频预处理
 class VideoPreprocessing:
@@ -238,7 +271,7 @@ class VideoPreprocessor:
             # 当缓存池中的数据小于等于0时，开始随机抽帧替换位置
             if(self.local_shuffle_num <= 0):
                 self.local_shuffle_num = self.max_cache_size
-                faces_to_use , frames_to_use = local_shuffle(self.cache_pool['faces_to_use'],self.cache_pool['frames_to_use'], window_size=300, swap_count=10)
+                faces_to_use , frames_to_use = BaseVideoUtils.local_shuffle(self.cache_pool['faces_to_use'],self.cache_pool['frames_to_use'], window_size=300, swap_count=10)
                 self.cache_pool['faces_to_use'] = faces_to_use
                 self.cache_pool['frames_to_use'] = frames_to_use
             
