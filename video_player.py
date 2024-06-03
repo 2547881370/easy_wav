@@ -115,8 +115,8 @@ if __name__ == "__main__":
     screen = pygame.display.set_mode((720 * 0.8, 1280 * 0.8))
     player = VideoPlayer()
 
-    audio_thread = threading.Thread(target=player.play_audio)
-    audio_thread.start()
+    # audio_thread = threading.Thread(target=player.play_audio)
+    # audio_thread.start()
 
     while True:
         read_result = read_and_remove_first_object()
